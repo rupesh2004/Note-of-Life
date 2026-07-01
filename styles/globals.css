@@ -9,17 +9,21 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    --background-start-rgb: 7, 10, 25;
+    --background-end-rgb: 15, 23, 42;
   }
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
+  min-height: 100vh;
+  margin: 0;
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: radial-gradient(circle at top left, rgba(16, 185, 129, 0.08), transparent 28%),
+    radial-gradient(circle at 80% 20%, rgba(56, 189, 248, 0.08), transparent 22%),
+    linear-gradient(180deg, rgb(var(--background-start-rgb)) 0%, rgb(var(--background-end-rgb)) 100%);
+  background-attachment: fixed;
 }
