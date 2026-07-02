@@ -4,6 +4,7 @@ import "@/styles/globals.css";
 import Header from "./components/header";
 import Footer from "./components/Footer";
 import { Toaster } from "react-hot-toast";
+import { ThemeProvider } from "next-themes";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -17,11 +18,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <Header />
       <body className={inter.className}>
-        {children}
-        <Toaster position="top-right" reverseOrder={false} />
+        <ThemeProvider attribute="class" defaultTheme="system">
+          {children}
+          <Toaster position="top-right" reverseOrder={false} />
+        </ThemeProvider>
       </body>
       <Footer />
     </html>

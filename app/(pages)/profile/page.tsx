@@ -513,7 +513,7 @@ export default function ProfilePage() {
 
             {/* Danger Zone */}
             <div className="rounded-3xl border border-red-200/50 bg-red-50/30 p-6 backdrop-blur-sm dark:border-red-800/30 dark:bg-red-950/20">
-              <h3 className="mb-2 text-lg font-semibold text-red-700 dark:text-red-400">
+              <h3 className="mt-1 text-lg font-semibold text-red-700 dark:text-red-400">
                 Danger Zone
               </h3>
               <p className="mb-4 text-sm text-red-600 dark:text-red-300">

@@ -12,6 +12,8 @@
     "bcryptjs": "^3.0.3",
     "framer-motion": "^12.42.2",
     "jsonwebtoken": "^9.0.3",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^1.22.0",
     "mongodb": "^6.21.0",
