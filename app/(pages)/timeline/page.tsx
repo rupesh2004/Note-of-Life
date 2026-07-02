@@ -134,6 +134,11 @@ export default function TimelinePage() {
 
     // ─── LOAD ENTRIES ──────────────────────────────────────────
     useEffect(() => {
+        const token = localStorage.getItem("token");
+        if(!token){
+            window.location.href = "/login";
+        }
+        
         const stored = localStorage.getItem("diaryEntries");
         if (stored) {
             try {

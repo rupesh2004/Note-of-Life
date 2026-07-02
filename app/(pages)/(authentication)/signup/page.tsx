@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import axios from "axios";
 import { useRouter } from "next/navigation";
 import {
     User,
@@ -27,47 +28,46 @@ export default function SignupPage() {
     const [agreeTerms, setAgreeTerms] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent)=>{
         e.preventDefault();
-
-        // Validation
-        if (!name || !email || !password || !confirmPassword) {
-            toast.error("Please fill in all fields.");
+        if(!name || !email || !password || !confirmPassword){
+            toast.error("Please fill in all required fields");
+            return;
+        }
+        if(password.length < 8){
+            toast.error("Password must be at least 8 characters long");
             return;
         }
 
-        if (password.length < 8) {
-            toast.error("Password must be at least 8 characters long.");
+        if(password !== confirmPassword){
+            toast.error("Passwords do not match");
             return;
         }
-
-        if (password !== confirmPassword) {
-            toast.error("Passwords do not match.");
+        if(!agreeTerms){
+            toast.error("You must agree to the terms and conditions");
             return;
         }
-
-        if (!agreeTerms) {
-            toast.error("Please agree to the Terms & Conditions.");
-            return;
-        }
-
         setIsLoading(true);
 
-        // Simulate signup request
-        try {
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            // For demo, any valid input works
-            window.localStorage.setItem("authToken", "demo-token");
+        try{
+            const response = await axios.post("/api/auth/signup", {
+                name, email, password
+            });
+            const { token, user } = response.data;
+            console.log("Signup successful:", response.data);
+            localStorage.setItem("token", token);
             toast.success("Account created successfully!");
             setTimeout(() => {
                 router.push("/home");
             }, 800);
-        } catch (err) {
-            toast.error("Signup failed. Please try again.");
-        } finally {
+        } catch(error : any){
+            const message = error.response?.data?.message || "An error occurred during signup";
+            toast.error(message);
+        }finally{
             setIsLoading(false);
         }
-    };
+
+    }
 
     const handleSocialSignup = (provider: string) => {
         setIsLoading(true);

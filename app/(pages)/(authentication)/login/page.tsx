@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import axios from "axios";
 import { useRouter } from "next/navigation";
 import {
     Mail,
@@ -25,25 +26,36 @@ export default function LoginPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if(!email || !password){
+            toast.error("Please fill in all required fields.");
+            return;
+        }
         setIsLoading(true);
-
-        // Simulate login request
-        try {
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            // For demo, any valid email/password works
-            if (email && password) {
-                window.localStorage.setItem("authToken", "demo-token");
-                toast.success("Signed in successfully!");
-                router.push("/home");
+        try{
+            const response = await axios.post("/api/auth/login",{
+                email,password
+            })
+            const { token, user, success, message } = response.data;
+            if(response.status === 200 && success){
+                console.log("Login successful:", response.data);
+                localStorage.setItem("token", token);
+                toast.success("Welcome back!");
+                setTimeout(() => {
+                    router.push("/home");
+                }, 500);
             } else {
-                toast.error("Please fill in all fields.");
+                toast.error(message || "Login failed. Please check your credentials.");
+                return;
             }
-        } catch (err) {
-            toast.error("Login failed. Please try again.");
-        } finally {
+
+        }catch(error : any){
+            const message = error.response?.data?.message || "An error occurred during login";
+            toast.error(message);
+        }finally{
             setIsLoading(false);
         }
-    };
+    }
+
 
     const handleSocialLogin = (provider: string) => {
         // Simulate social login
@@ -60,9 +72,9 @@ export default function LoginPage() {
         <main className="min-h-screen flex items-center justify-center px-6 py-12">
             {/* Background decorative blobs */}
             <div className="absolute inset-0 -z-10 overflow-hidden">
-                <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/5" />
-                <div className="absolute -bottom-40 -left-40 h-[600px] w-[600px] rounded-full bg-pink-500/10 blur-3xl dark:bg-pink-500/5" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[800px] w-[800px] rounded-full bg-purple-500/5 blur-3xl dark:bg-purple-500/5" />
+                <div className="absolute -top-40 -right-40 h-150 w-150 rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/5" />
+                <div className="absolute -bottom-40 -left-40 h-150 w-150 rounded-full bg-pink-500/10 blur-3xl dark:bg-pink-500/5" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-200 w-200 rounded-full bg-purple-500/5 blur-3xl dark:bg-purple-500/5" />
             </div>
 
             <div className="w-full max-w-md">
@@ -71,7 +83,7 @@ export default function LoginPage() {
                     {/* Logo / Brand */}
                     <div className="mb-8 text-center">
                         <div className="flex justify-center">
-                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 shadow-lg">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-r from-indigo-600 via-purple-600 to-pink-500 shadow-lg">
                                 <BookOpen className="h-8 w-8 text-white" />
                             </div>
                         </div>
@@ -169,7 +181,7 @@ export default function LoginPage() {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="group relative flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-pink-500 px-6 py-3 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:shadow-indigo-500/40 disabled:cursor-not-allowed disabled:opacity-70"
+                            className="group relative flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-indigo-600 to-pink-500 px-6 py-3 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:shadow-indigo-500/40 disabled:cursor-not-allowed disabled:opacity-70"
                         >
                             {isLoading ? (
                                 <span className="flex items-center gap-2">

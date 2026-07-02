@@ -159,14 +159,14 @@ function WritePageContent() {
     // ─── AUTH STATE ────────────────────────────────────────────
     const [isCheckingAuth, setIsCheckingAuth] = useState(false);
 
-    // useEffect(() => {
-    //     const token = localStorage.getItem(  "token");
-    //     if (!token) {
-    //         router.replace("/login");
-    //     } else {
-    //         setIsCheckingAuth(false);
-    //     }
-    // }, [router]);
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        if (!token) {
+            router.replace("/login");
+        } else {
+            setIsCheckingAuth(false);
+        }
+    }, [router]);
 
     // ─── ENTRY STATE ──────────────────────────────────────────
     const [title, setTitle] = useState("");

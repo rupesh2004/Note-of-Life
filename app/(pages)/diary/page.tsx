@@ -130,9 +130,8 @@ export default function DiaryPage() {
     };
 
     useEffect(() => {
-        // Optional auth check (commented out)
-        // const token = localStorage.getItem("authToken");
-        // if (!token) router.replace("/login");
+        const token = localStorage.getItem("token");
+        if (!token) router.replace("/login");
 
         loadEntries();
         setIsLoading(false);
