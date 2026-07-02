@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import toast from "react-hot-toast";
+import { jwtDecode } from "jwt-decode";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -26,6 +27,11 @@ interface Settings {
     weeklyDigest: boolean;
 }
 
+interface JWTPayload {
+    name: string;
+    email: string;
+}
+
 export default function SettingsPage() {
     const router = useRouter();
     const { theme, setTheme } = useTheme();
@@ -38,7 +44,9 @@ export default function SettingsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isExporting, setIsExporting] = useState(false);
     const [isClearing, setIsClearing] = useState(false);
+    const [isSendingReminder, setIsSendingReminder] = useState(false);
     const [clearConfirm, setClearConfirm] = useState(false);
+    const [userEmail, setUserEmail] = useState<string | null>(null);
 
     // ─── Load settings ──────────────────────────────────────────
     useEffect(() => {
@@ -56,6 +64,71 @@ export default function SettingsPage() {
         setIsLoading(false);
     }, [setTheme]);
 
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        try {
+            const decoded = jwtDecode<JWTPayload>(token);
+            if (decoded?.email) setUserEmail(decoded.email);
+        } catch {
+            console.error("Invalid auth token");
+        }
+    }, []);
+
+    const getAuthHeaders = (): Record<string, string> => {
+        const token = localStorage.getItem("token");
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
+
+    const updateDailyReminderPreference = async (enabled: boolean) => {
+        try {
+            const headers: Record<string, string> = {
+                "Content-Type": "application/json",
+                ...getAuthHeaders(),
+            };
+
+            const response = await fetch("/api/auth/user/settings", {
+                method: "PUT",
+                headers,
+                body: JSON.stringify({ dailyReminder: enabled }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to persist daily reminder setting");
+            }
+
+            return true;
+        } catch (error) {
+            console.error("Update daily reminder preference error", error);
+            toast.error("Could not save daily reminder setting to your account");
+            return false;
+        }
+    };
+
+    const sendDailyReminder = async (email: string) => {
+        setIsSendingReminder(true);
+
+        try {
+            const response = await fetch("/api/notifications/daily-reminder", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Unable to send reminder email");
+            }
+
+            toast.success("Daily reminder email sent");
+        } catch (error) {
+            console.error("Daily reminder email error", error);
+            toast.error("Failed to send reminder email");
+        } finally {
+            setIsSendingReminder(false);
+        }
+    };
+
     // ─── Save settings ──────────────────────────────────────────
     const saveSettings = (newSettings: Settings) => {
         localStorage.setItem("appSettings", JSON.stringify(newSettings));
@@ -71,10 +144,20 @@ export default function SettingsPage() {
     };
 
     // ─── Toggle handlers ──────────────────────────────────────
-    const toggleDailyReminder = () => {
+    const toggleDailyReminder = async () => {
         const updated = { ...settings, dailyReminder: !settings.dailyReminder };
         saveSettings(updated);
         toast.success(updated.dailyReminder ? "Daily reminders enabled" : "Daily reminders disabled");
+
+        const token = localStorage.getItem("token");
+        if (token) {
+            await updateDailyReminderPreference(updated.dailyReminder);
+        } else {
+            toast("Log in to persist your reminder preference", {
+                icon: "ℹ️",
+                duration: 5000,
+            });
+        }
     };
 
     const toggleWeeklyDigest = () => {
@@ -312,6 +395,23 @@ export default function SettingsPage() {
                                     />
                                 </button>
                             </div>
+                            {settings.dailyReminder && (
+                                <div className="mt-4 rounded-2xl border border-indigo-200/70 bg-indigo-50/40 p-4 text-sm text-slate-700 dark:border-indigo-500/20 dark:bg-indigo-950/30 dark:text-slate-200">
+                                    <p className="font-medium">Reminder email</p>
+                                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                        {userEmail
+                                            ? "Send a test reminder email to your registered address."
+                                            : "Save a profile email address to receive reminder emails."}
+                                    </p>
+                                    <button
+                                        onClick={() => userEmail && sendDailyReminder(userEmail)}
+                                        disabled={!userEmail || isSendingReminder}
+                                        className="mt-3 inline-flex items-center rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {isSendingReminder ? "Sending..." : "Send test reminder"}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </section>
 
