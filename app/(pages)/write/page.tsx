@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, JSX } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     ArrowLeft,
@@ -153,14 +153,14 @@ const ConfirmationDialog = ({ message, onConfirm, onCancel }: { message: string;
 export default function WritePage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const entryId = searchParams.get("id");
-    const mode = searchParams.get("mode"); // "edit" or null
+    const entryId = searchParams?.get("id");
+    const mode = searchParams?.get("mode"); // "edit" or null
 
     // ─── AUTH STATE ────────────────────────────────────────────
     const [isCheckingAuth, setIsCheckingAuth] = useState(false);
 
     // useEffect(() => {
-    //     const token = localStorage.getItem("token");
+    //     const token = localStorage.getItem(  "token");
     //     if (!token) {
     //         router.replace("/login");
     //     } else {
@@ -402,9 +402,8 @@ export default function WritePage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
-                    className={`rounded-3xl border border-gray-200/50 bg-white/70 p-6 backdrop-blur-xl dark:border-gray-800/50 dark:bg-slate-900/70 md:p-8 ${
-                        readOnly ? "opacity-90" : ""
-                    }`}
+                    className={`rounded-3xl border border-gray-200/50 bg-white/70 p-6 backdrop-blur-xl dark:border-gray-800/50 dark:bg-slate-900/70 md:p-8 ${readOnly ? "opacity-90" : ""
+                        }`}
                 >
                     {/* Title */}
                     <div className="mb-4">
@@ -414,9 +413,8 @@ export default function WritePage() {
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             readOnly={readOnly}
-                            className={`w-full border-none bg-transparent text-2xl font-bold text-gray-900 placeholder-gray-400 outline-none focus:ring-0 dark:text-white dark:placeholder-gray-500 ${
-                                readOnly ? "cursor-default" : ""
-                            }`}
+                            className={`w-full border-none bg-transparent text-2xl font-bold text-gray-900 placeholder-gray-400 outline-none focus:ring-0 dark:text-white dark:placeholder-gray-500 ${readOnly ? "cursor-default" : ""
+                                }`}
                             autoFocus={!readOnly}
                         />
                     </div>
@@ -441,11 +439,10 @@ export default function WritePage() {
                                             );
                                         }}
                                         disabled={readOnly}
-                                        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-sm transition ${
-                                            selectedMood === mood.value
+                                        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-sm transition ${selectedMood === mood.value
                                                 ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
                                                 : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700"
-                                        } ${readOnly ? "cursor-default opacity-70" : ""}`}
+                                            } ${readOnly ? "cursor-default opacity-70" : ""}`}
                                     >
                                         {mood.icon}
                                         <span className="hidden sm:inline">{mood.label}</span>
@@ -475,9 +472,8 @@ export default function WritePage() {
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
                             readOnly={readOnly}
-                            className={`min-h-[300px] w-full resize-y border-none bg-transparent text-gray-900 placeholder-gray-400 outline-none focus:ring-0 dark:text-white dark:placeholder-gray-500 ${
-                                readOnly ? "cursor-default" : ""
-                            }`}
+                            className={`min-h-[300px] w-full resize-y border-none bg-transparent text-gray-900 placeholder-gray-400 outline-none focus:ring-0 dark:text-white dark:placeholder-gray-500 ${readOnly ? "cursor-default" : ""
+                                }`}
                         />
                     )}
 
