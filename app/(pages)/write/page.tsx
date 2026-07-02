@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, JSX } from "react";
+import { useState, useRef, useEffect, JSX, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     ArrowLeft,
@@ -150,7 +150,7 @@ const ConfirmationDialog = ({ message, onConfirm, onCancel }: { message: string;
 };
 
 // ─── MAIN WRITE PAGE ──────────────────────────────────────────
-export default function WritePage() {
+function WritePageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const entryId = searchParams?.get("id");
@@ -522,5 +522,19 @@ export default function WritePage() {
                 )}
             </div>
         </main>
+    );
+}
+
+export default function WritePage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="flex min-h-screen items-center justify-center">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+                </div>
+            }
+        >
+            <WritePageContent />
+        </Suspense>
     );
 }
