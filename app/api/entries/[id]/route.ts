@@ -75,6 +75,7 @@ export async function PUT(
             mood: encryptedMood,
             tags: encryptedTags,
             date: date || new Date().toISOString(),
+            
         });
 
         if (!updatedEntry) {
@@ -142,7 +143,6 @@ export async function GET(
             mood: decrypt(entry.mood),
             tags: decryptArray(entry.tags),
         };
-
         return NextResponse.json({ entry: decrypted });
     } catch (error) {
         console.error("Get single entry error:", error);

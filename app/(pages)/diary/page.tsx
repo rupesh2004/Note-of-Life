@@ -93,6 +93,7 @@ export default function DiaryPage() {
             const response = await axios.get("/api/entries", {
                 headers: getAuthHeaders(),
             });
+            localStorage.setItem("entries", JSON.stringify(response.data.entries));
             setEntries(response.data.entries);
             setError(null);
         } catch (err: any) {
@@ -228,9 +229,9 @@ export default function DiaryPage() {
                         >
                             All
                         </button>
-                        {moods.map((mood) => (
+                        {moods.map((mood, idx) => (
                             <button
-                                key={mood}
+                                key={`${mood || 'mood'}-${idx}`}
                                 onClick={() => setSelectedMood(mood)}
                                 className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm capitalize transition ${
                                     selectedMood === mood
@@ -315,9 +316,9 @@ export default function DiaryPage() {
                                     {/* Tags */}
                                     {entry.tags && entry.tags.length > 0 && (
                                         <div className="mt-3 flex flex-wrap gap-1.5">
-                                            {entry.tags.map((tag) => (
+                                            {entry.tags.map((tag, idx) => (
                                                 <span
-                                                    key={tag}
+                                                    key={`${entry._id}-tag-${idx}-${tag || 'empty'}`}
                                                     className="rounded-full bg-indigo-100/80 px-2.5 py-0.5 text-xs text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
                                                 >
                                                     #{tag}
