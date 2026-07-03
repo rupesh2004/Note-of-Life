@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import {
     BookOpen,
     Calendar,
@@ -22,56 +23,30 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 
-// ─── MOCK DATA ───────────────────────────────────────────────
-const initialEntries = [
-    {
-        id: "1",
-        title: "A Beautiful Morning",
-        content:
-            "Woke up to the sound of birds chirping outside my window. The sun was streaming through the curtains, casting warm patterns on the floor. I decided to take a long walk in the park—the air was crisp and the trees were starting to turn golden. It felt like a fresh start.",
-        date: "2026-06-30T08:30:00Z",
-        mood: "happy",
-        tags: ["nature", "morning", "gratitude"],
-    },
-    {
-        id: "2",
-        title: "Overcoming Challenges",
-        content:
-            "Today was tough. I hit a roadblock with my project at work and felt completely stuck. But after stepping back and taking a deep breath, I realized I had been overcomplicating things. I broke the problem down into smaller pieces and made real progress. Proud of myself for pushing through.",
-        date: "2026-06-29T22:15:00Z",
-        mood: "proud",
-        tags: ["work", "growth", "resilience"],
-    },
-    {
-        id: "3",
-        title: "Evening Reflections",
-        content:
-            "As the sun set, I sat on my balcony with a cup of tea and watched the sky turn shades of orange and pink. I thought about the week—the highs and lows—and felt a deep sense of peace. Gratitude for the simple moments is what keeps me grounded.",
-        date: "2026-06-28T19:45:00Z",
-        mood: "calm",
-        tags: ["evening", "reflection", "peace"],
-    },
-    {
-        id: "4",
-        title: "Unexpected Reunion",
-        content:
-            "Ran into an old friend from college today at the coffee shop. It had been years since we last spoke, but we picked up right where we left off. We laughed, shared stories, and promised to catch up more often. It's amazing how some connections never fade.",
-        date: "2026-06-27T14:20:00Z",
-        mood: "joyful",
-        tags: ["friends", "nostalgia", "connection"],
-    },
-    {
-        id: "5",
-        title: "Rainy Day Musings",
-        content:
-            "The rain poured down all afternoon, creating a soothing rhythm against the window. I curled up with a good book and lost myself in another world. Sometimes the best days are the ones where you don't have to do anything at all.",
-        date: "2026-06-26T11:00:00Z",
-        mood: "relaxed",
-        tags: ["rain", "reading", "cozy"],
-    },
-];
+// ─── TYPES ──────────────────────────────────────────────────────
+interface Entry {
+    _id: string;
+    email: string;
+    title: string;
+    content: string;
+    mood: string;
+    tags: string[];
+    date: string;
+    createdAt: string;
+    updatedAt?: string;
+}
 
-// ─── HELPERS ────────────────────────────────────────────────
+// ─── HELPERS ──────────────────────────────────────────────────
+const isToday = (dateString: string): boolean => {
+    const date = new Date(dateString);
+    const today = new Date();
+    return (
+        date.getFullYear() === today.getFullYear() &&
+        date.getMonth() === today.getMonth() &&
+        date.getDate() === today.getDate()
+    );
+};
+
 const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat("en-US", {
@@ -96,50 +71,88 @@ const moodIcons: Record<string, React.ReactElement> = {
 // ─── MAIN COMPONENT ──────────────────────────────────────────
 export default function DiaryPage() {
     const router = useRouter();
-    const [entries, setEntries] = useState<any[]>([]);
+    const [entries, setEntries] = useState<Entry[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedMood, setSelectedMood] = useState<string | null>(null);
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
     const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    // ─── LOAD ENTRIES FROM LOCALSTORAGE ──────────────────────
-    const loadEntries = () => {
-        const stored = localStorage.getItem("diaryEntries");
-        if (stored) {
-            try {
-                const parsed = JSON.parse(stored);
-                if (parsed.length > 0) {
-                    setEntries(parsed);
-                    return;
-                }
-            } catch (e) {
-                console.error("Failed to parse entries from localStorage", e);
-            }
+    // ─── AUTH HEADERS ──────────────────────────────────────────
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem("token");
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
+
+    // ─── FETCH ENTRIES ──────────────────────────────────────────
+    const fetchEntries = async () => {
+        try {
+            const response = await axios.get("/api/entries", {
+                headers: getAuthHeaders(),
+            });
+            setEntries(response.data.entries);
+            setError(null);
+        } catch (err: any) {
+            console.error("Failed to fetch entries:", err);
+            const msg = err.response?.data?.message || "Could not load entries.";
+            setError(msg);
+            toast.error(msg);
+        } finally {
+            setIsLoading(false);
         }
-
-        // If localStorage is empty, seed with initial entries
-        localStorage.setItem("diaryEntries", JSON.stringify(initialEntries));
-        setEntries(initialEntries);
     };
 
-    // ─── SYNC ENTRIES TO LOCALSTORAGE ────────────────────────
-    const saveEntries = (newEntries: any[]) => {
-        localStorage.setItem("diaryEntries", JSON.stringify(newEntries));
-        setEntries(newEntries);
+    // ─── DELETE ENTRY ───────────────────────────────────────────
+    const handleDelete = async (id: string) => {
+        setIsDeleting(true);
+        try {
+            await axios.delete(`/api/entries/${id}`, {
+                headers: getAuthHeaders(),
+            });
+            setEntries((prev) => prev.filter((entry) => entry._id !== id));
+            toast.success("Entry deleted.");
+        } catch (err: any) {
+            const msg = err.response?.data?.message || "Failed to delete entry.";
+            toast.error(msg);
+        } finally {
+            setIsDeleting(false);
+            setDeleteConfirmId(null);
+        }
     };
 
+    // ─── VIEW & EDIT HANDLERS ──────────────────────────────────
+    const handleView = (id: string) => {
+        router.push(`/write?id=${id}`);
+        setDropdownOpen(null);
+    };
+
+    const handleEdit = (id: string) => {
+        router.push(`/write?id=${id}&mode=edit`);
+        setDropdownOpen(null);
+    };
+
+    // ─── LOAD ON MOUNT ──────────────────────────────────────────
     useEffect(() => {
         const token = localStorage.getItem("token");
-        if (!token) router.replace("/login");
-
-        loadEntries();
-        setIsLoading(false);
+        if (!token) {
+            router.replace("/login");
+            return;
+        }
+        fetchEntries();
     }, [router]);
 
-    if (isLoading) return null;
+    if (isLoading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+            </div>
+        );
+    }
 
-    // ─── FILTER & SORT ────────────────────────────────────────
+    // ─── FILTER & SORT ──────────────────────────────────────────
     const filteredEntries = entries
         .filter((entry) => {
             const matchesSearch =
@@ -154,50 +167,11 @@ export default function DiaryPage() {
             return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
         });
 
-    // ─── HANDLERS ─────────────────────────────────────────────
-    const handleDelete = (id: string) => {
-        toast((t) => (
-            <div className="flex flex-col gap-3">
-                <p className="font-medium text-gray-900 dark:text-gray-100">
-                    Delete this entry permanently?
-                </p>
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => {
-                            const updated = entries.filter((entry) => entry.id !== id);
-                            saveEntries(updated);
-                            setDropdownOpen(null);
-                            toast.dismiss(t.id);
-                            toast.success("Entry deleted.");
-                        }}
-                        className="rounded-full bg-red-500 px-3 py-1.5 text-sm font-semibold text-white"
-                    >
-                        Delete
-                    </button>
-                    <button
-                        onClick={() => toast.dismiss(t.id)}
-                        className="rounded-full bg-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 dark:bg-slate-700 dark:text-gray-200"
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        ), { duration: Infinity, position: "top-center" });
-    };
-
-    const handleView = (id: string) => {
-        router.push(`/write?id=${id}`);
-        setDropdownOpen(null);
-    };
-
-    const handleEdit = (id: string) => {
-        router.push(`/write?id=${id}&mode=edit`);
-        setDropdownOpen(null);
-    };
-
     const moods = Array.from(new Set(entries.map((e) => e.mood)));
 
-    // ─── RENDER ───────────────────────────────────────────────
+    // ─── RENDER ──────────────────────────────────────────────────
+    const entryToDelete = entries.find((entry) => entry._id === deleteConfirmId);
+
     return (
         <main className="min-h-screen px-6 py-12 md:py-16">
             {/* Background blobs */}
@@ -310,7 +284,7 @@ export default function DiaryPage() {
                         <AnimatePresence>
                             {filteredEntries.map((entry, index) => (
                                 <motion.div
-                                    key={entry.id}
+                                    key={entry._id}
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -20 }}
@@ -341,7 +315,7 @@ export default function DiaryPage() {
                                     {/* Tags */}
                                     {entry.tags && entry.tags.length > 0 && (
                                         <div className="mt-3 flex flex-wrap gap-1.5">
-                                            {entry.tags.map((tag: string) => (
+                                            {entry.tags.map((tag) => (
                                                 <span
                                                     key={tag}
                                                     className="rounded-full bg-indigo-100/80 px-2.5 py-0.5 text-xs text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
@@ -353,35 +327,38 @@ export default function DiaryPage() {
                                     )}
 
                                     {/* Actions dropdown */}
-                                    <div className="absolute bottom-4 right-4">
+                                    <div className="absolute bottom-4 right-4 z-10">
                                         <button
                                             onClick={() =>
                                                 setDropdownOpen(
-                                                    dropdownOpen === entry.id ? null : entry.id
+                                                    dropdownOpen === entry._id ? null : entry._id
                                                 )
                                             }
                                             className="rounded-full p-1.5 text-gray-400 transition hover:bg-gray-100 dark:hover:bg-slate-800"
                                         >
                                             <MoreVertical size={18} />
                                         </button>
-                                        {dropdownOpen === entry.id && (
+                                        {dropdownOpen === entry._id && (
                                             <div className="absolute right-0 mt-1 w-40 rounded-xl border border-gray-200 bg-white/90 py-1 shadow-lg backdrop-blur-sm dark:border-gray-700 dark:bg-slate-900/90">
                                                 <button
-                                                    onClick={() => handleView(entry.id)}
+                                                    onClick={() => handleView(entry._id)}
                                                     className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-800"
                                                 >
                                                     <Eye size={16} />
                                                     View
                                                 </button>
                                                 <button
-                                                    onClick={() => handleEdit(entry.id)}
+                                                    onClick={() => handleEdit(entry._id)}
                                                     className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-800"
                                                 >
                                                     <Edit size={16} />
                                                     Edit
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(entry.id)}
+                                                    onClick={() => {
+                                                        setDeleteConfirmId(entry._id);
+                                                        setDropdownOpen(null);
+                                                    }}
                                                     className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                                                 >
                                                     <Trash size={16} />
@@ -391,10 +368,10 @@ export default function DiaryPage() {
                                         )}
                                     </div>
 
-                                    {/* Clickable card – navigates to read-only view */}
+                                    {/* Clickable card – opens in edit mode for today entries, otherwise view only */}
                                     <Link
-                                        href={`/write?id=${entry.id}`}
-                                        className="absolute inset-0 rounded-2xl"
+                                        href={`/write?id=${entry._id}${isToday(entry.date) || isToday(entry.createdAt) ? "&mode=edit" : ""}`}
+                                        className="absolute inset-0 rounded-2xl z-0"
                                         aria-label={`View entry: ${entry.title}`}
                                     />
                                 </motion.div>
@@ -403,6 +380,33 @@ export default function DiaryPage() {
                     </div>
                 )}
             </div>
+
+            {deleteConfirmId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-slate-900">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Delete entry</h2>
+                        <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                            Are you sure you want to delete {entryToDelete ? `"${entryToDelete.title}"` : "this entry"}? This action cannot be undone.
+                        </p>
+                        <div className="mt-6 flex items-center justify-end gap-3">
+                            <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-slate-800"
+                                disabled={isDeleting}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => entryToDelete && handleDelete(entryToDelete._id)}
+                                className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                                disabled={isDeleting}
+                            >
+                                {isDeleting ? "Deleting..." : "Delete entry"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
     );
 }

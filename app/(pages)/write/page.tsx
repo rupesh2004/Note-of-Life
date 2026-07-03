@@ -21,6 +21,7 @@ import {
     AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
 
 // ─── TYPES ──────────────────────────────────────────────────────
 type Mood = "happy" | "calm" | "proud" | "joyful" | "relaxed" | "sad" | "angry" | "neutral";
@@ -30,14 +31,26 @@ interface Tag {
     text: string;
 }
 
-interface DiaryEntry {
-    id: string;
-    title: string;
-    content: string;
-    date: string;
-    mood: Mood | "neutral";
-    tags: string[];
-}
+// ─── HELPERS ──────────────────────────────────────────────────
+const isToday = (dateString: string): boolean => {
+    const date = new Date(dateString);
+    const today = new Date();
+    return (
+        date.getFullYear() === today.getFullYear() &&
+        date.getMonth() === today.getMonth() &&
+        date.getDate() === today.getDate()
+    );
+};
+
+const formatDate = (dateString: string) => {
+    return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    }).format(new Date(dateString));
+};
 
 // ─── TOAST ─────────────────────────────────────────────────────
 const Toast = ({ message, type, onClose }: { message: string; type: "success" | "error"; onClose: () => void }) => {
@@ -157,7 +170,7 @@ function WritePageContent() {
     const mode = searchParams?.get("mode"); // "edit" or null
 
     // ─── AUTH STATE ────────────────────────────────────────────
-    const [isCheckingAuth, setIsCheckingAuth] = useState(false);
+    const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -177,7 +190,10 @@ function WritePageContent() {
     const [isSaving, setIsSaving] = useState(false);
     const [isPreview, setIsPreview] = useState(false);
     const [entryDate, setEntryDate] = useState<string>("");
+    const [entryDateRaw, setEntryDateRaw] = useState<string>("");
     const [readOnly, setReadOnly] = useState(false);
+    const [readOnlyReason, setReadOnlyReason] = useState<string>("");
+    const [isLoadingEntry, setIsLoadingEntry] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
     const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
@@ -187,44 +203,63 @@ function WritePageContent() {
     useEffect(() => {
         if (isCheckingAuth) return;
 
-        if (entryId) {
-            const stored = localStorage.getItem("diaryEntries");
-            if (stored) {
-                const entries: DiaryEntry[] = JSON.parse(stored);
-                const entry = entries.find((e) => e.id === entryId);
-                if (entry) {
-                    setTitle(entry.title);
-                    setContent(entry.content);
-                    setSelectedMood(entry.mood as Mood);
-                    setTags(entry.tags.map((t) => ({ id: t, text: t })));
-                    const formatted = new Intl.DateTimeFormat("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                    }).format(new Date(entry.date));
-                    setEntryDate(formatted);
-                    setReadOnly(mode !== "edit");
-                    return;
-                }
+        async function loadEntry() {
+            if (!entryId) return;
+            setIsLoadingEntry(true);
+
+            const token = localStorage.getItem("token");
+            if (!token) {
+                router.replace("/login");
+                return;
             }
-            setToast({ message: "Entry not found", type: "error" });
-            setTimeout(() => router.push("/diary"), 1500);
+
+            try {
+                const response = await axios.get(`/api/entries/${entryId}`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                const { entry } = response.data;
+                setTitle(entry.title);
+                setContent(entry.content);
+                setSelectedMood(entry.mood as Mood);
+                setTags(entry.tags.map((tag: string) => ({ id: tag, text: tag })));
+
+                // Store raw date for comparison
+                setEntryDateRaw(entry.date);
+                const formatted = formatDate(entry.date);
+                setEntryDate(formatted);
+
+                // ─── Determine read‑only status ─────────────────────
+                const isEntryToday = isToday(entry.date) || isToday(entry.createdAt);
+                if (!isEntryToday) {
+                    setReadOnly(true);
+                    setReadOnlyReason("This entry is from a past date and cannot be edited.");
+                } else {
+                    setReadOnly(false);
+                    setReadOnlyReason("");
+                }
+            } catch (error) {
+                console.error("Load entry error:", error);
+                setToast({ message: "Unable to load entry.", type: "error" });
+                setTimeout(() => router.push("/diary"), 1500);
+            } finally {
+                setIsLoadingEntry(false);
+            }
+        }
+
+        if (entryId) {
+            loadEntry();
             return;
         }
 
         // New entry: set current date and editable
         const now = new Date();
-        const formatted = new Intl.DateTimeFormat("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        }).format(now);
-        setEntryDate(formatted);
+        setEntryDateRaw(now.toISOString());
+        setEntryDate(formatDate(now.toISOString()));
         setReadOnly(false);
+        setReadOnlyReason("");
     }, [entryId, mode, router, isCheckingAuth]);
 
     // ─── MOODS ──────────────────────────────────────────────────
@@ -263,33 +298,46 @@ function WritePageContent() {
 
     const handleSave = async () => {
         if (readOnly) return;
-
-        if (!title.trim() || !content.trim()) {
-            setToast({ message: "Please add a title and content.", type: "error" });
+        if (!title.trim() && !content.trim()) {
+            setToast({ message: "Title or content is required", type: "error" });
             return;
         }
-
         setIsSaving(true);
         try {
-            await new Promise((resolve) => setTimeout(resolve, 1200));
-            const newEntry: DiaryEntry = {
-                id: Date.now().toString(),
+            const token = localStorage.getItem("token");
+            if (!token) {
+                setToast({ message: "You must be logged in.", type: "error" });
+                setIsSaving(false);
+                return;
+            }
+            const entryData = {
                 title: title.trim(),
                 content: content.trim(),
-                date: new Date().toISOString(),
                 mood: selectedMood || "neutral",
                 tags: tags.map((t) => t.text),
+                date: new Date().toISOString(),
             };
 
-            const stored = localStorage.getItem("diaryEntries");
-            const entries: DiaryEntry[] = stored ? JSON.parse(stored) : [];
-            entries.push(newEntry);
-            localStorage.setItem("diaryEntries", JSON.stringify(entries));
+            const response = entryId
+                ? await axios.put(`/api/entries/${entryId}`, entryData, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                })
+                : await axios.post("/api/entries", entryData, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
 
-            setToast({ message: "Entry saved successfully!", type: "success" });
-            setTimeout(() => router.push("/diary"), 800);
+            const { entry } = response.data;
+            const successMessage = entryId ? "Entry updated successfully!" : "Entry saved successfully!";
+            setToast({ message: successMessage, type: "success" });
+            setTimeout(() => {
+                router.push(`/diary?id=${entry._id}`);
+            }, 1000);
         } catch (error) {
-            setToast({ message: "Failed to save entry. Please try again.", type: "error" });
+            setToast({ message: "Failed to save entry.", type: "error" });
         } finally {
             setIsSaving(false);
         }
@@ -311,7 +359,7 @@ function WritePageContent() {
     };
 
     // ─── LOADING STATE ─────────────────────────────────────────
-    if (isCheckingAuth) {
+    if (isCheckingAuth || isLoadingEntry) {
         return (
             <div className="flex min-h-screen items-center justify-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
@@ -356,6 +404,11 @@ function WritePageContent() {
                             <div className="flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-600 dark:bg-slate-800 dark:text-gray-300">
                                 <Lock size={16} />
                                 <span>Read Only</span>
+                                {readOnlyReason && (
+                                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                                        ({readOnlyReason})
+                                    </span>
+                                )}
                             </div>
                         ) : (
                             <>
@@ -440,8 +493,8 @@ function WritePageContent() {
                                         }}
                                         disabled={readOnly}
                                         className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-sm transition ${selectedMood === mood.value
-                                                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
-                                                : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700"
+                                            ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+                                            : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700"
                                             } ${readOnly ? "cursor-default opacity-70" : ""}`}
                                     >
                                         {mood.icon}

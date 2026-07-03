@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
-import { Resend } from "resend";
 import { otpStore } from "@/lib/otp-store";
+import { getResendClient, resendFromEmail, appBaseUrl } from "@/lib/resend";
 
-const getResendClient = () => {
-  const resendApiKey = process.env.RESEND_API_KEY;
-  if (!resendApiKey) {
-    throw new Error("Missing API key. Pass it to the constructor `new Resend(\"re_123\")`");
-  }
-  return new Resend(resendApiKey);
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -90,7 +83,7 @@ export async function POST(req: NextRequest) {
 
                       <!-- Action Button -->
                       <div style="text-align: center; margin: 32px 0;">
-                        <a href="${process.env.NEXTAUTH_URL || "http://localhost:3000"}/forgot-password" 
+                        <a href="${appBaseUrl}/forgot-password" 
                            style="display: inline-block; background: linear-gradient(135deg, #4F46E5, #7C3AED); color: #ffffff; padding: 14px 40px; border-radius: 9999px; text-decoration: none; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);">
                           Go to Reset Page
                         </a>
@@ -135,7 +128,7 @@ export async function POST(req: NextRequest) {
     // Send email
     const resend = getResendClient();
     await resend.emails.send({
-      from: "Note of Life <onboarding@resend.dev>",
+      from: resendFromEmail,
       to: email,
       subject: "🔐 Reset Your Password – Note of Life",
       html,

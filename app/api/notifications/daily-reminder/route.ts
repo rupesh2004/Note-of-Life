@@ -1,13 +1,6 @@
-import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
+import { getResendClient, resendFromEmail, appBaseUrl } from "@/lib/resend";
 
-const getResendClient = () => {
-  const resendApiKey = process.env.RESEND_API_KEY;
-  if (!resendApiKey) {
-    throw new Error("Missing API key. Pass it to the constructor `new Resend(\"re_123\")`");
-  }
-  return new Resend(resendApiKey);
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -67,7 +60,7 @@ export async function POST(req: NextRequest) {
 
                       <!-- CTA Button -->
                       <div style="text-align: center; margin: 32px 0;">
-                        <a href="${process.env.NEXTAUTH_URL || "http://localhost:3000"}/write" 
+                        <a href="${appBaseUrl}/write" 
                            style="display: inline-block; background: linear-gradient(135deg, #4F46E5, #7C3AED); color: #ffffff; padding: 14px 40px; border-radius: 9999px; text-decoration: none; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);">
                           ✍️ Write Now
                         </a>
@@ -81,7 +74,7 @@ export async function POST(req: NextRequest) {
                         You're receiving this because you enabled daily reminders in your settings.
                       </p>
                       <p style="margin: 6px 0 0 0; font-size: 14px; color: #6B7280; text-align: center;">
-                        To disable, go to <a href="${process.env.NEXTAUTH_URL || "http://localhost:3000"}/settings" style="color: #4F46E5; text-decoration: none; font-weight: 500;">Settings</a>.
+                        To disable, go to <a href="${appBaseUrl}/settings" style="color: #4F46E5; text-decoration: none; font-weight: 500;">Settings</a>.
                       </p>
                     </td>
                   </tr>
@@ -118,7 +111,7 @@ export async function POST(req: NextRequest) {
     // ─── Send the email ──────────────────────────────────────
     const resend = getResendClient();
     await resend.emails.send({
-      from: "Note of Life <onboarding@resend.dev>",
+      from: resendFromEmail,
       to: email,
       subject: "🌅 Your Daily Journal Reminder",
       html,
