@@ -150,6 +150,7 @@ export default function ForgotPasswordPage() {
                         <p className="text-sm text-gray-600 dark:text-gray-400">
                             Enter your email address and we'll send you a 6-digit OTP to reset your password.
                         </p>
+                        
                         <form onSubmit={handleSendOTP}>
                             <div className="relative mt-1">
                                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
@@ -189,7 +190,7 @@ export default function ForgotPasswordPage() {
                         className="space-y-5"
                     >
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                            We've sent a 6-digit OTP to <strong>{email}</strong>. Enter it below.
+                            We've sent a 6-digit OTP to <strong>{email}</strong>. Enter it below. Check your inbox or spam folder. If you didn't receive it, you can resend the OTP.
                         </p>
                         <form onSubmit={handleVerifyOTP}>
                             <input

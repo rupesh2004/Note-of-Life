@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getResendClient, resendFromEmail, appBaseUrl } from "@/lib/resend";
+import { sendEmail, appBaseUrl } from "@/lib/mail";
 
 
 export async function POST(req: NextRequest) {
@@ -109,9 +109,7 @@ export async function POST(req: NextRequest) {
     `;
 
     // ─── Send the email ──────────────────────────────────────
-    const resend = getResendClient();
-    await resend.emails.send({
-      from: resendFromEmail,
+    await sendEmail({
       to: email,
       subject: "🌅 Your Daily Journal Reminder",
       html,

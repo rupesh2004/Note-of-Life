@@ -394,7 +394,7 @@ export default function SettingsPage() {
                                     <p className="font-medium">Reminder email</p>
                                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                                         {userEmail
-                                            ? "Send a test reminder email to your registered address."
+                                            ? "Send a test reminder email to your registered address. Check your inbox or spam folder."
                                             : "Save a profile email address to receive reminder emails."}
                                     </p>
                                     <button
