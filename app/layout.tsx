@@ -19,14 +19,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <Header />
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system">
+      <body className={inter.className} suppressHydrationWarning>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <Header />
           {children}
           <Toaster position="top-right" reverseOrder={false} />
+          <Footer />
         </ThemeProvider>
       </body>
-      <Footer />
     </html>
   );
 }

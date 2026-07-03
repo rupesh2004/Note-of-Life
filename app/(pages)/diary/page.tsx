@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import axios from "axios";
@@ -76,10 +76,32 @@ export default function DiaryPage() {
     const [selectedMood, setSelectedMood] = useState<string | null>(null);
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
     const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+    const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isDeleting, setIsDeleting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // ─── REF FOR DROPDOWN MENU ─────────────────────────────────
+    const dropdownMenuRef = useRef<HTMLDivElement | null>(null);
+
+    // ─── CLICK OUTSIDE HANDLER ──────────────────────────────────
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (
+                dropdownMenuRef.current &&
+                !dropdownMenuRef.current.contains(event.target as Node) &&
+                !(event.target as HTMLElement).closest?.(".dropdown-trigger")
+            ) {
+                setDropdownOpen(null);
+                setDropdownPosition(null);
+            }
+        };
+        if (dropdownOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [dropdownOpen]);
 
     // ─── AUTH HEADERS ──────────────────────────────────────────
     const getAuthHeaders = () => {
@@ -128,11 +150,32 @@ export default function DiaryPage() {
     const handleView = (id: string) => {
         router.push(`/write?id=${id}`);
         setDropdownOpen(null);
+        setDropdownPosition(null);
     };
 
     const handleEdit = (id: string) => {
         router.push(`/write?id=${id}&mode=edit`);
         setDropdownOpen(null);
+        setDropdownPosition(null);
+    };
+
+    // ─── DROPDOWN TOGGLE ──────────────────────────────────────
+    const toggleDropdown = (e: React.MouseEvent, entryId: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (dropdownOpen === entryId) {
+            setDropdownOpen(null);
+            setDropdownPosition(null);
+            return;
+        }
+
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        setDropdownPosition({
+            top: rect.bottom + 8, // 8px gap
+            right: window.innerWidth - rect.right,
+        });
+        setDropdownOpen(entryId);
     };
 
     // ─── LOAD ON MOUNT ──────────────────────────────────────────
@@ -290,7 +333,7 @@ export default function DiaryPage() {
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -20 }}
                                     transition={{ duration: 0.3, delay: index * 0.05 }}
-                                    className="group relative rounded-2xl border border-gray-200/50 bg-white/60 p-5 backdrop-blur-sm transition-all hover:border-indigo-300/50 hover:shadow-xl hover:shadow-indigo-500/5 dark:border-gray-800/50 dark:bg-slate-900/60"
+                                    className="group relative rounded-2xl border border-gray-200/50 bg-white/60 p-5 backdrop-blur-sm transition-all hover:border-indigo-300/50 hover:shadow-xl hover:shadow-indigo-500/5 dark:border-gray-800/50 dark:bg-slate-900/60 overflow-visible"
                                 >
                                     {/* Mood indicator */}
                                     <div className="absolute right-4 top-4 flex items-center gap-1 rounded-full bg-gray-100/80 px-2 py-1 text-xs font-medium dark:bg-slate-800/80">
@@ -327,49 +370,17 @@ export default function DiaryPage() {
                                         </div>
                                     )}
 
-                                    {/* Actions dropdown */}
-                                    <div className="absolute bottom-4 right-4 z-10">
+                                    {/* ─── DROPDOWN TRIGGER ─── */}
+                                    <div className="absolute bottom-4 right-4 z-20">
                                         <button
-                                            onClick={() =>
-                                                setDropdownOpen(
-                                                    dropdownOpen === entry._id ? null : entry._id
-                                                )
-                                            }
-                                            className="rounded-full p-1.5 text-gray-400 transition hover:bg-gray-100 dark:hover:bg-slate-800"
+                                            className="dropdown-trigger rounded-full p-1.5 text-gray-400 transition hover:bg-gray-100 dark:hover:bg-slate-800"
+                                            onClick={(e) => toggleDropdown(e, entry._id)}
                                         >
                                             <MoreVertical size={18} />
                                         </button>
-                                        {dropdownOpen === entry._id && (
-                                            <div className="absolute right-0 mt-1 w-40 rounded-xl border border-gray-200 bg-white/90 py-1 shadow-lg backdrop-blur-sm dark:border-gray-700 dark:bg-slate-900/90">
-                                                <button
-                                                    onClick={() => handleView(entry._id)}
-                                                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-800"
-                                                >
-                                                    <Eye size={16} />
-                                                    View
-                                                </button>
-                                                <button
-                                                    onClick={() => handleEdit(entry._id)}
-                                                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-800"
-                                                >
-                                                    <Edit size={16} />
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setDeleteConfirmId(entry._id);
-                                                        setDropdownOpen(null);
-                                                    }}
-                                                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                                                >
-                                                    <Trash size={16} />
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        )}
                                     </div>
 
-                                    {/* Clickable card – opens in edit mode for today entries, otherwise view only */}
+                                    {/* Clickable card overlay */}
                                     <Link
                                         href={`/write?id=${entry._id}${isToday(entry.date) || isToday(entry.createdAt) ? "&mode=edit" : ""}`}
                                         className="absolute inset-0 rounded-2xl z-0"
@@ -382,6 +393,51 @@ export default function DiaryPage() {
                 )}
             </div>
 
+            {/* ─── FIXED POSITION DROPDOWN ─── */}
+            {dropdownOpen && dropdownPosition && (
+                <div
+                    ref={dropdownMenuRef}
+                    className="fixed z-50 w-40 rounded-xl border border-gray-200 bg-white/90 py-1 shadow-lg backdrop-blur-sm dark:border-gray-700 dark:bg-slate-900/90"
+                    style={{
+                        top: dropdownPosition.top,
+                        right: dropdownPosition.right,
+                    }}
+                >
+                    <button
+                        onClick={() => {
+                            if (dropdownOpen) handleView(dropdownOpen);
+                        }}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-800"
+                    >
+                        <Eye size={16} />
+                        View
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (dropdownOpen) handleEdit(dropdownOpen);
+                        }}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-800"
+                    >
+                        <Edit size={16} />
+                        Edit
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (dropdownOpen) {
+                                setDeleteConfirmId(dropdownOpen);
+                                setDropdownOpen(null);
+                                setDropdownPosition(null);
+                            }
+                        }}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                    >
+                        <Trash size={16} />
+                        Delete
+                    </button>
+                </div>
+            )}
+
+            {/* Delete confirmation dialog */}
             {deleteConfirmId && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
                     <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-slate-900">

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
+import axios from "axios";
+import { motion } from "framer-motion";
 import {
     Calendar,
     ChevronLeft,
@@ -13,13 +15,14 @@ import {
     Meh,
     Sparkles,
     AlertCircle,
-    TrendingUp,
     BookOpen,
-    Clock,
-    Filter,
     Search,
     X,
     Eye,
+    TrendingUp,
+    Clock,
+    ChevronUp,
+    BarChart3,
 } from "lucide-react";
 
 type Mood = "happy" | "calm" | "proud" | "joyful" | "relaxed" | "sad" | "angry" | "neutral";
@@ -33,16 +36,16 @@ interface DiaryEntry {
     tags: string[];
 }
 
-// ─── MOOD ICONS ──────────────────────────────────────────────
-const moodIcons: Record<string, React.ReactElement> = {
-    happy: <Smile className="text-emerald-500" size={18} />,
-    proud: <Sparkles className="text-indigo-500" size={18} />,
-    calm: <Heart className="text-rose-500" size={18} />,
-    joyful: <Smile className="text-yellow-500" size={18} />,
-    relaxed: <Meh className="text-blue-500" size={18} />,
-    sad: <Frown className="text-gray-400" size={18} />,
-    angry: <AlertCircle className="text-red-500" size={18} />,
-    neutral: <Meh className="text-gray-400" size={18} />,
+// ─── MOOD CONFIGURATION ──────────────────────────────────────
+const moodConfig: Record<string, { icon: React.ReactElement; color: string; label: string; bg: string }> = {
+    happy: { icon: <Smile size={18} />, color: "text-emerald-500", label: "Happy", bg: "bg-emerald-50 dark:bg-emerald-950/30" },
+    proud: { icon: <Sparkles size={18} />, color: "text-indigo-500", label: "Proud", bg: "bg-indigo-50 dark:bg-indigo-950/30" },
+    calm: { icon: <Heart size={18} />, color: "text-rose-500", label: "Calm", bg: "bg-rose-50 dark:bg-rose-950/30" },
+    joyful: { icon: <Smile size={18} />, color: "text-yellow-500", label: "Joyful", bg: "bg-yellow-50 dark:bg-yellow-950/30" },
+    relaxed: { icon: <Meh size={18} />, color: "text-blue-500", label: "Relaxed", bg: "bg-blue-50 dark:bg-blue-950/30" },
+    sad: { icon: <Frown size={18} />, color: "text-gray-400", label: "Sad", bg: "bg-gray-50 dark:bg-gray-950/30" },
+    angry: { icon: <AlertCircle size={18} />, color: "text-red-500", label: "Angry", bg: "bg-red-50 dark:bg-red-950/30" },
+    neutral: { icon: <Meh size={18} />, color: "text-gray-400", label: "Neutral", bg: "bg-gray-50 dark:bg-gray-950/30" },
 };
 
 const moodColors: Record<string, string> = {
@@ -56,15 +59,15 @@ const moodColors: Record<string, string> = {
     neutral: "border-gray-400 bg-gray-50 dark:bg-gray-950/30",
 };
 
-const moodLabels: Record<string, string> = {
-    happy: "Happy",
-    proud: "Proud",
-    calm: "Calm",
-    joyful: "Joyful",
-    relaxed: "Relaxed",
-    sad: "Sad",
-    angry: "Angry",
-    neutral: "Neutral",
+const moodColorMap: Record<string, string> = {
+    happy: "emerald",
+    proud: "indigo",
+    calm: "rose",
+    joyful: "yellow",
+    relaxed: "blue",
+    sad: "gray",
+    angry: "red",
+    neutral: "gray",
 };
 
 // ─── HELPERS ──────────────────────────────────────────────────
@@ -122,8 +125,162 @@ const getMonthYear = (dateString: string) => {
     }).format(date);
 };
 
+// ─── STAT CARD ─────────────────────────────────────────────────
+function StatCard({ icon, value, label, color, capitalize = false }: any) {
+    const colorClasses: Record<string, string> = {
+        indigo: "border-indigo-200 bg-indigo-50/30 dark:border-indigo-800/30 dark:bg-indigo-950/20",
+        pink: "border-pink-200 bg-pink-50/30 dark:border-pink-800/30 dark:bg-pink-950/20",
+        emerald: "border-emerald-200 bg-emerald-50/30 dark:border-emerald-800/30 dark:bg-emerald-950/20",
+        purple: "border-purple-200 bg-purple-50/30 dark:border-purple-800/30 dark:bg-purple-950/20",
+        rose: "border-rose-200 bg-rose-50/30 dark:border-rose-800/30 dark:bg-rose-950/20",
+        yellow: "border-yellow-200 bg-yellow-50/30 dark:border-yellow-800/30 dark:bg-yellow-950/20",
+        blue: "border-blue-200 bg-blue-50/30 dark:border-blue-800/30 dark:bg-blue-950/20",
+        red: "border-red-200 bg-red-50/30 dark:border-red-800/30 dark:bg-red-950/20",
+        gray: "border-gray-200 bg-gray-50/30 dark:border-gray-800/30 dark:bg-gray-950/20",
+    };
+    return (
+        <div className={`rounded-2xl border p-4 text-center transition hover:shadow-lg ${colorClasses[color] || "border-gray-200/50 bg-white/60 dark:border-gray-800/50 dark:bg-slate-900/60"}`}>
+            <div className="flex items-center justify-center gap-2">
+                {icon}
+                <p className={`text-2xl font-bold ${capitalize ? "capitalize" : ""}`}>
+                    {typeof value === "string" ? value : value}
+                </p>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{label}</p>
+        </div>
+    );
+}
+
+// ─── EMPTY STATE ──────────────────────────────────────────────
+function EmptyState({ searchTerm, selectedMood }: { searchTerm: string; selectedMood: string | null }) {
+    return (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="rounded-full bg-gray-100 p-6 dark:bg-slate-800">
+                <BookOpen size={48} className="text-gray-400 dark:text-gray-500" />
+            </div>
+            <h3 className="mt-4 text-xl font-medium text-gray-700 dark:text-gray-300">
+                No entries found
+            </h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {searchTerm || selectedMood
+                    ? "Try adjusting your search or filters"
+                    : "Write your first diary entry to start your timeline!"}
+            </p>
+            {!searchTerm && !selectedMood && (
+                <Link
+                    href="/write"
+                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-pink-500 px-6 py-2.5 font-semibold text-white shadow-lg transition hover:scale-105"
+                >
+                    <BookOpen size={18} />
+                    Write Now
+                </Link>
+            )}
+        </div>
+    );
+}
+
+// ─── TIMELINE CONTENT ────────────────────────────────────────
+function TimelineContent({ entries }: { entries: DiaryEntry[] }) {
+    const grouped = entries.reduce((acc, entry) => {
+        const key = new Date(entry.date).toDateString();
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(entry);
+        return acc;
+    }, {} as Record<string, DiaryEntry[]>);
+
+    const keys = Object.keys(grouped);
+
+    return (
+        <div className="relative">
+            <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-indigo-400 via-pink-400 to-indigo-400 dark:from-indigo-600 dark:via-pink-600 dark:to-indigo-600" />
+
+            {keys.map((key, index) => {
+                const dayEntries = grouped[key];
+                const groupLabel = getGroupLabel(key);
+                const isFirst = index === 0;
+
+                return (
+                    <div key={key} className="relative pl-12 pb-8 last:pb-0">
+                        <div
+                            className={`absolute left-2 top-1.5 h-5 w-5 rounded-full border-2 ${
+                                isFirst
+                                    ? "border-indigo-500 bg-indigo-500 dark:border-indigo-400 dark:bg-indigo-400"
+                                    : "border-gray-300 bg-white dark:border-gray-600 dark:bg-slate-800"
+                            }`}
+                        />
+                        <div className="mb-4 flex items-center gap-3">
+                            <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                                {groupLabel}
+                            </span>
+                            <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                                {dayEntries.length}
+                            </span>
+                        </div>
+                        <div className="space-y-3">
+                            {dayEntries.map((entry, idx) => (
+                                <motion.div
+                                    key={entry.id}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: idx * 0.05, duration: 0.25 }}
+                                    className={`group rounded-2xl border-l-4 ${moodColors[entry.mood] || moodColors.neutral} bg-white/70 p-4 backdrop-blur-sm transition-all hover:shadow-xl hover:scale-[1.01] dark:bg-slate-900/70`}
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                                                <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                                                    <Clock size={14} />
+                                                    {formatTime(entry.date)}
+                                                </span>
+                                                <span className="text-gray-300 dark:text-gray-600">·</span>
+                                                <span className="flex items-center gap-1 text-sm capitalize">
+                                                    {moodConfig[entry.mood]?.icon || moodConfig.neutral.icon}
+                                                    <span className="text-gray-700 dark:text-gray-300">
+                                                        {moodConfig[entry.mood]?.label || entry.mood}
+                                                    </span>
+                                                </span>
+                                            </div>
+                                            <Link href={`/write?id=${entry.id}`} className="block">
+                                                <h4 className="mt-1 text-lg font-semibold text-gray-900 hover:text-indigo-600 dark:text-white dark:hover:text-indigo-400 transition-colors">
+                                                    {entry.title}
+                                                </h4>
+                                                <p className="mt-1 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
+                                                    {entry.content}
+                                                </p>
+                                                {entry.tags.length > 0 && (
+                                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                                        {entry.tags.map((tag) => (
+                                                            <span
+                                                                key={tag}
+                                                                className="rounded-full bg-indigo-100/80 px-2 py-0.5 text-xs text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                                                            >
+                                                                #{tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </Link>
+                                        </div>
+                                        <Link
+                                            href={`/write?id=${entry.id}`}
+                                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800"
+                                        >
+                                            <Eye size={18} className="text-gray-400" />
+                                        </Link>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 // ─── MAIN COMPONENT ──────────────────────────────────────────
 export default function TimelinePage() {
+    const router = useRouter();
     const [entries, setEntries] = useState<DiaryEntry[]>([]);
     const [filteredEntries, setFilteredEntries] = useState<DiaryEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -131,61 +288,68 @@ export default function TimelinePage() {
     const [selectedMood, setSelectedMood] = useState<string | null>(null);
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+    const [error, setError] = useState<string | null>(null);
+    const [showScrollTop, setShowScrollTop] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
 
-    // ─── LOAD ENTRIES ──────────────────────────────────────────
-    useEffect(() => {
+    const getAuthHeaders = () => {
         const token = localStorage.getItem("token");
-        if(!token){
-            window.location.href = "/login";
-        }
-        
-        const stored = localStorage.getItem("diaryEntries");
-        if (stored) {
-            try {
-                const parsed = JSON.parse(stored);
-                setEntries(parsed);
-                setFilteredEntries(parsed);
-            } catch (e) {
-                console.error("Failed to parse entries", e);
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
+
+    const fetchEntries = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                router.replace("/login");
+                return;
             }
+            const response = await axios.get("/api/entries", {
+                headers: getAuthHeaders(),
+            });
+            const fetchedEntries: DiaryEntry[] = response.data.entries.map((entry: any) => ({
+                id: entry._id,
+                title: entry.title,
+                content: entry.content,
+                date: entry.date,
+                mood: entry.mood || "neutral",
+                tags: entry.tags || [],
+            }));
+            setEntries(fetchedEntries);
+            setError(null);
+        } catch (err: any) {
+            const msg = err.response?.data?.message || "Could not load entries.";
+            setError(msg);
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
+    };
+
+    useEffect(() => {
+        fetchEntries();
     }, []);
 
-    // ─── FILTER ENTRIES ────────────────────────────────────────
     useEffect(() => {
         let filtered = entries;
-
-        // Filter by search
         if (searchTerm) {
             filtered = filtered.filter(
                 (entry) =>
                     entry.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     entry.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    entry.tags.some((tag) =>
-                        tag.toLowerCase().includes(searchTerm.toLowerCase())
-                    )
+                    entry.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()))
             );
         }
-
-        // Filter by mood
         if (selectedMood) {
             filtered = filtered.filter((entry) => entry.mood === selectedMood);
         }
-
-        // Filter by year/month
         filtered = filtered.filter((entry) => {
             const date = new Date(entry.date);
             return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
         });
-
-        // Sort by date (newest first)
         filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
         setFilteredEntries(filtered);
     }, [entries, searchTerm, selectedMood, currentYear, currentMonth]);
 
-    // ─── NAVIGATION ────────────────────────────────────────────
     const goToPrevMonth = () => {
         if (currentMonth === 0) {
             setCurrentMonth(11);
@@ -194,7 +358,6 @@ export default function TimelinePage() {
             setCurrentMonth(currentMonth - 1);
         }
     };
-
     const goToNextMonth = () => {
         if (currentMonth === 11) {
             setCurrentMonth(0);
@@ -203,163 +366,34 @@ export default function TimelinePage() {
             setCurrentMonth(currentMonth + 1);
         }
     };
-
     const goToToday = () => {
         const now = new Date();
         setCurrentMonth(now.getMonth());
         setCurrentYear(now.getFullYear());
     };
 
-    // ─── STATS ──────────────────────────────────────────────────
-    const totalEntries = entries.length;
-    const entriesThisMonth = entries.filter((entry) => {
-        const date = new Date(entry.date);
-        return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-    }).length;
+    useEffect(() => {
+        const handleScroll = () => {
+            if (containerRef.current) {
+                setShowScrollTop(window.scrollY > 400);
+            }
+        };
+        window.addEventListener("scroll", handleScroll);
+        return () => window.removeEventListener("scroll", handleScroll);
+    }, []);
 
+    const scrollToTop = () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    const totalEntries = entries.length;
+    const entriesThisMonth = filteredEntries.length;
     const moodCounts = entries.reduce((acc, entry) => {
         acc[entry.mood] = (acc[entry.mood] || 0) + 1;
         return acc;
     }, {} as Record<string, number>);
-
     const topMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "neutral";
-
-    // ─── RENDER FUNCTIONS ──────────────────────────────────────
-    const renderTimeline = () => {
-        if (filteredEntries.length === 0) {
-            return (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="rounded-full bg-gray-100 p-6 dark:bg-slate-800">
-                        <BookOpen size={48} className="text-gray-400 dark:text-gray-500" />
-                    </div>
-                    <h3 className="mt-4 text-xl font-medium text-gray-700 dark:text-gray-300">
-                        No entries this month
-                    </h3>
-                    <p className="mt-1 text-gray-500 dark:text-gray-400">
-                        {searchTerm || selectedMood
-                            ? "Try adjusting your search or filters"
-                            : "Write your first diary entry to start your timeline!"}
-                    </p>
-                    {!searchTerm && !selectedMood && (
-                        <Link
-                            href="/write"
-                            className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-pink-500 px-6 py-2.5 font-semibold text-white shadow-lg transition hover:scale-105"
-                        >
-                            <BookOpen size={18} />
-                            Write Now
-                        </Link>
-                    )}
-                </div>
-            );
-        }
-
-        // Group entries by day
-        const grouped: Record<string, DiaryEntry[]> = {};
-        filteredEntries.forEach((entry) => {
-            const key = new Date(entry.date).toDateString();
-            if (!grouped[key]) grouped[key] = [];
-            grouped[key].push(entry);
-        });
-
-        const keys = Object.keys(grouped);
-
-        return (
-            <div className="relative">
-                {/* Vertical line */}
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-indigo-400 via-pink-400 to-indigo-400 dark:from-indigo-600 dark:via-pink-600 dark:to-indigo-600" />
-
-                {keys.map((key, index) => {
-                    const dayEntries = grouped[key];
-                    const date = new Date(key);
-                    const isFirst = index === 0;
-                    const groupLabel = getGroupLabel(key);
-
-                    return (
-                        <div key={key} className="relative pl-12 pb-8 last:pb-0">
-                            {/* Timeline dot */}
-                            <div
-                                className={`absolute left-2 top-1.5 h-5 w-5 rounded-full border-2 ${
-                                    isFirst
-                                        ? "border-indigo-500 bg-indigo-500 dark:border-indigo-400 dark:bg-indigo-400"
-                                        : "border-gray-300 bg-white dark:border-gray-600 dark:bg-slate-800"
-                                }`}
-                            />
-
-                            {/* Date label */}
-                            <div className="mb-4 flex items-center gap-3">
-                                <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                                    {groupLabel}
-                                </span>
-                                <span className="text-sm text-gray-400 dark:text-gray-500">
-                                    {dayEntries.length} entry{dayEntries.length > 1 ? "s" : ""}
-                                </span>
-                            </div>
-
-                            {/* Entries for this day */}
-                            <div className="space-y-3">
-                                {dayEntries.map((entry) => (
-                                    <motion.div
-                                        key={entry.id}
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ duration: 0.3 }}
-                                        className={`group rounded-2xl border-l-4 ${moodColors[entry.mood] || moodColors.neutral} bg-white/60 p-4 backdrop-blur-sm transition-all hover:shadow-md dark:bg-slate-900/60`}
-                                    >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                                                        {formatTime(entry.date)}
-                                                    </span>
-                                                    <span className="text-gray-300 dark:text-gray-600">·</span>
-                                                    <span className="flex items-center gap-1 text-sm capitalize">
-                                                        {moodIcons[entry.mood] || moodIcons.neutral}
-                                                        {moodLabels[entry.mood] || entry.mood}
-                                                    </span>
-                                                </div>
-                                                <Link
-                                                    href={`/write?id=${entry.id}`}
-                                                    className="block"
-                                                >
-                                                    <h4 className="mt-1 text-lg font-semibold text-gray-900 hover:text-indigo-600 dark:text-white dark:hover:text-indigo-400 transition-colors">
-                                                        {entry.title}
-                                                    </h4>
-                                                    <p className="mt-1 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
-                                                        {entry.content}
-                                                    </p>
-                                                    {entry.tags.length > 0 && (
-                                                        <div className="mt-2 flex flex-wrap gap-1.5">
-                                                            {entry.tags.map((tag) => (
-                                                                <span
-                                                                    key={tag}
-                                                                    className="rounded-full bg-indigo-100/80 px-2 py-0.5 text-xs text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
-                                                                >
-                                                                    #{tag}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </Link>
-                                            </div>
-                                            <Link
-                                                href={`/write?id=${entry.id}`}
-                                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800"
-                                            >
-                                                <Eye size={18} className="text-gray-400" />
-                                            </Link>
-                                        </div>
-                                    </motion.div>
-                                ))}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        );
-    };
-
-    // ─── AVAILABLE MOODS ──────────────────────────────────────
-    const availableMoods = Array.from(new Set(entries.map((e) => e.mood)));
+    const topMoodColor = moodColorMap[topMood] || "gray";
 
     if (isLoading) {
         return (
@@ -369,23 +403,35 @@ export default function TimelinePage() {
         );
     }
 
+    if (error) {
+        return (
+            <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
+                <p className="text-center text-red-600 dark:text-red-400">{error}</p>
+                <button
+                    onClick={fetchEntries}
+                    className="rounded-full bg-indigo-600 px-6 py-2 text-white hover:bg-indigo-700 transition"
+                >
+                    Retry
+                </button>
+            </div>
+        );
+    }
+
     return (
-        <main className="min-h-screen px-4 py-8 md:px-8 md:py-12">
-            {/* Background blobs */}
-            <div className="absolute inset-0 -z-10 overflow-hidden">
+        <main className="min-h-screen px-4 py-8 md:px-8 md:py-12" ref={containerRef}>
+            <div className="fixed inset-0 -z-10 overflow-hidden">
                 <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/5" />
                 <div className="absolute -bottom-40 -left-40 h-[600px] w-[600px] rounded-full bg-pink-500/10 blur-3xl dark:bg-pink-500/5" />
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[800px] w-[800px] rounded-full bg-purple-500/5 blur-3xl dark:bg-purple-500/5" />
             </div>
 
             <div className="mx-auto max-w-5xl">
-                {/* Header */}
                 <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-indigo-600 to-pink-500 bg-clip-text text-transparent">
                             Your Timeline
                         </h1>
-                        <p className="mt-1 text-gray-600 dark:text-gray-400">
+                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                             {totalEntries} entries · {entriesThisMonth} this month
                         </p>
                     </div>
@@ -398,39 +444,27 @@ export default function TimelinePage() {
                     </Link>
                 </div>
 
-                {/* Stats Row */}
                 {totalEntries > 0 && (
                     <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                        <div className="rounded-2xl border border-gray-200/50 bg-white/60 p-4 text-center dark:border-gray-800/50 dark:bg-slate-900/60">
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalEntries}</p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Total Entries</p>
-                        </div>
-                        <div className="rounded-2xl border border-gray-200/50 bg-white/60 p-4 text-center dark:border-gray-800/50 dark:bg-slate-900/60">
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{entriesThisMonth}</p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">This Month</p>
-                        </div>
-                        <div className="rounded-2xl border border-gray-200/50 bg-white/60 p-4 text-center dark:border-gray-800/50 dark:bg-slate-900/60">
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                                <span className="capitalize">{topMood}</span>
-                            </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Top Mood</p>
-                        </div>
-                        <div className="rounded-2xl border border-gray-200/50 bg-white/60 p-4 text-center dark:border-gray-800/50 dark:bg-slate-900/60">
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                                {Object.keys(moodCounts).length}
-                            </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Moods Used</p>
-                        </div>
+                        <StatCard icon={<BookOpen size={18} className="text-indigo-500" />} value={totalEntries} label="Total Entries" color="indigo" />
+                        <StatCard icon={<TrendingUp size={18} className="text-pink-500" />} value={entriesThisMonth} label="This Month" color="pink" />
+                        <StatCard 
+                            icon={moodConfig[topMood]?.icon || <Calendar size={18} className="text-gray-400" />} 
+                            value={topMood} 
+                            label="Top Mood" 
+                            color={topMoodColor} 
+                            capitalize 
+                        />
+                        <StatCard icon={<BarChart3 size={18} className="text-purple-500" />} value={Object.keys(moodCounts).length} label="Moods Used" color="purple" />
                     </div>
                 )}
 
-                {/* Navigation & Filters */}
-                <div className="mb-6 flex flex-wrap items-center gap-4">
-                    {/* Month Navigation */}
-                    <div className="flex items-center gap-2 rounded-2xl border border-gray-200/50 bg-white/60 p-1.5 dark:border-gray-800/50 dark:bg-slate-900/60">
+                <div className="mb-6 flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1 rounded-2xl border border-gray-200/50 bg-white/60 p-1 dark:border-gray-800/50 dark:bg-slate-900/60 shadow-sm">
                         <button
                             onClick={goToPrevMonth}
                             className="rounded-full p-2 transition hover:bg-gray-100 dark:hover:bg-slate-800"
+                            aria-label="Previous month"
                         >
                             <ChevronLeft size={18} />
                         </button>
@@ -443,73 +477,86 @@ export default function TimelinePage() {
                         <button
                             onClick={goToNextMonth}
                             className="rounded-full p-2 transition hover:bg-gray-100 dark:hover:bg-slate-800"
+                            aria-label="Next month"
                         >
                             <ChevronRight size={18} />
                         </button>
                     </div>
 
-                    {/* Search */}
-                    <div className="relative flex-1 min-w-[180px]">
+                    <div className="relative flex-1 min-w-[160px]">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
                         <input
                             type="text"
                             placeholder="Search entries..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full rounded-2xl border border-gray-200/50 bg-white/60 py-2 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 backdrop-blur-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-800/50 dark:bg-slate-900/60 dark:text-white dark:placeholder-gray-500"
+                            className="w-full rounded-2xl border border-gray-200/50 bg-white/60 py-2 pl-10 pr-8 text-sm text-gray-900 placeholder-gray-400 backdrop-blur-sm transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-800/50 dark:bg-slate-900/60 dark:text-white dark:placeholder-gray-500"
                         />
                         {searchTerm && (
                             <button
                                 onClick={() => setSearchTerm("")}
                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                             >
-                                <X size={18} />
+                                <X size={16} />
                             </button>
                         )}
                     </div>
 
-                    {/* Mood Filter */}
-                    {availableMoods.length > 0 && (
-                        <div className="flex items-center gap-2">
-                            <Filter size={18} className="text-gray-400 dark:text-gray-500" />
-                            <button
-                                onClick={() => setSelectedMood(null)}
-                                className={`rounded-full px-3 py-1 text-xs transition ${
-                                    selectedMood === null
-                                        ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
-                                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700"
-                                }`}
-                            >
-                                All
-                            </button>
-                            {availableMoods.map((mood) => (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Mood:</span>
+                        <button
+                            onClick={() => setSelectedMood(null)}
+                            className={`rounded-full px-3 py-1 text-xs transition ${
+                                selectedMood === null
+                                    ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700"
+                            }`}
+                        >
+                            All
+                        </button>
+                        {Object.entries(moodConfig).map(([key, config]) => {
+                            const count = entries.filter(e => e.mood === key).length;
+                            if (count === 0) return null;
+                            return (
                                 <button
-                                    key={mood}
-                                    onClick={() => setSelectedMood(selectedMood === mood ? null : mood)}
-                                    className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs capitalize transition ${
-                                        selectedMood === mood
+                                    key={key}
+                                    onClick={() => setSelectedMood(selectedMood === key ? null : key)}
+                                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition ${
+                                        selectedMood === key
                                             ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
                                             : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700"
                                     }`}
                                 >
-                                    {moodIcons[mood]}
-                                    <span className="hidden sm:inline">{mood}</span>
+                                    <span className={config.color}>{config.icon}</span>
+                                    <span className="hidden sm:inline">{config.label}</span>
+                                    <span className="text-[10px] opacity-60">({count})</span>
                                 </button>
-                            ))}
-                        </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="rounded-3xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-xl dark:border-gray-800/50 dark:bg-slate-900/60 md:p-8 shadow-sm">
+                    {filteredEntries.length === 0 ? (
+                        <EmptyState searchTerm={searchTerm} selectedMood={selectedMood} />
+                    ) : (
+                        <TimelineContent entries={filteredEntries} />
                     )}
                 </div>
 
-                {/* Timeline */}
-                <div className="rounded-3xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-xl dark:border-gray-800/50 dark:bg-slate-900/60 md:p-8">
-                    {renderTimeline()}
-                </div>
-
-                {/* Footer hint */}
                 {filteredEntries.length > 0 && (
-                    <p className="mt-6 text-center text-sm text-gray-400 dark:text-gray-500">
+                    <p className="mt-4 text-center text-xs text-gray-400 dark:text-gray-500">
                         {filteredEntries.length} entry{filteredEntries.length > 1 ? "s" : ""} found
                     </p>
+                )}
+
+                {showScrollTop && (
+                    <button
+                        onClick={scrollToTop}
+                        className="fixed bottom-6 right-6 z-50 rounded-full bg-gradient-to-r from-indigo-600 to-pink-500 p-3 text-white shadow-lg transition hover:scale-110"
+                    >
+                        <ChevronUp size={24} />
+                    </button>
                 )}
             </div>
         </main>

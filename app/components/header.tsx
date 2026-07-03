@@ -32,6 +32,7 @@ export default function Header() {
   const pathname = usePathname();
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // ─── Helper to decode user from token ───────────────────────
@@ -40,7 +41,6 @@ export default function Header() {
       const token = localStorage.getItem("token");
       if (!token) return null;
       const decoded = jwtDecode<JWTPayload>(token);
-      // Optional: check expiry
       if (decoded.exp && decoded.exp * 1000 < Date.now()) {
         localStorage.removeItem("token");
         return null;
@@ -60,10 +60,8 @@ export default function Header() {
     } else {
       setUser(null);
       setIsLoggedIn(false);
-      // Optionally redirect to login if on protected page
-      // (but we'll leave that to middleware)
     }
-  }, [pathname]); // re-run on navigation
+  }, [pathname]);
 
   // ─── Click outside to close dropdown ────────────────────────
   useEffect(() => {
@@ -74,6 +72,10 @@ export default function Header() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    setMounted(true);
   }, []);
 
   // ─── Helpers for avatar ──────────────────────────────────────
@@ -158,10 +160,14 @@ export default function Header() {
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="h-11 w-11 rounded-full border border-gray-300 dark:border-gray-700 flex items-center justify-center hover:scale-105 transition"
             >
-              {theme === "dark" ? (
-                <Sun size={18} className="text-yellow-400" />
+              {mounted ? (
+                theme === "dark" ? (
+                  <Sun size={18} className="text-yellow-400" />
+                ) : (
+                  <Moon size={18} />
+                )
               ) : (
-                <Moon size={18} />
+                <Sun size={18} className="opacity-0" />
               )}
             </button>
 
@@ -222,10 +228,12 @@ export default function Header() {
               </>
             ) : (
               <>
+                {/* Login button with User icon */}
                 <Link
                   href="/login"
-                  className="hidden md:block px-5 py-2.5 rounded-full border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-slate-900 transition"
+                  className="hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-slate-900 transition"
                 >
+                  <User size={18} />
                   Login
                 </Link>
                 <Link
@@ -292,8 +300,9 @@ export default function Header() {
                 <Link
                   href="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="rounded-lg border px-4 py-2 text-center"
+                  className="flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-center"
                 >
+                  <User size={16} />
                   Login
                 </Link>
                 <Link
