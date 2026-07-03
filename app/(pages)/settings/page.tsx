@@ -7,12 +7,12 @@ import toast from "react-hot-toast";
 import { jwtDecode } from "jwt-decode";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import axios from "axios";
 import {
     Sun,
     Moon,
     Monitor,
     Bell,
-    Mail,
     Download,
     Trash2,
     User,
@@ -55,7 +55,6 @@ export default function SettingsPage() {
             try {
                 const parsed = JSON.parse(stored);
                 setSettings(parsed);
-                // Important: sync the theme with next-themes
                 if (parsed.theme) setTheme(parsed.theme);
             } catch {
                 console.error("Failed to parse settings");
@@ -64,10 +63,10 @@ export default function SettingsPage() {
         setIsLoading(false);
     }, [setTheme]);
 
+    // ─── Decode email from token ──────────────────────────────
     useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) return;
-
         try {
             const decoded = jwtDecode<JWTPayload>(token);
             if (decoded?.email) setUserEmail(decoded.email);
@@ -76,60 +75,41 @@ export default function SettingsPage() {
         }
     }, []);
 
+    // ─── Auth headers ──────────────────────────────────────────
     const getAuthHeaders = (): Record<string, string> => {
         const token = localStorage.getItem("token");
         return token ? { Authorization: `Bearer ${token}` } : {};
     };
 
+    // ─── Update daily reminder in DB ────────────────────────────
     const updateDailyReminderPreference = async (enabled: boolean) => {
         try {
-            const headers: Record<string, string> = {
-                "Content-Type": "application/json",
-                ...getAuthHeaders(),
-            };
-
-            const response = await fetch("/api/auth/user/settings", {
-                method: "PUT",
-                headers,
-                body: JSON.stringify({ dailyReminder: enabled }),
-            });
-
-            if (!response.ok) {
-                throw new Error("Failed to persist daily reminder setting");
-            }
-
+            await axios.put(
+                "/api/auth/user/settings",
+                { dailyReminder: enabled },
+                { headers: getAuthHeaders() }
+            );
             return true;
-        } catch (error) {
-            console.error("Update daily reminder preference error", error);
+        } catch {
             toast.error("Could not save daily reminder setting to your account");
             return false;
         }
     };
 
+    // ─── Send test reminder ──────────────────────────────────────
     const sendDailyReminder = async (email: string) => {
         setIsSendingReminder(true);
-
         try {
-            const response = await fetch("/api/notifications/daily-reminder", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email }),
-            });
-
-            if (!response.ok) {
-                throw new Error("Unable to send reminder email");
-            }
-
+            await axios.post("/api/notifications/daily-reminder", { email });
             toast.success("Daily reminder email sent");
-        } catch (error) {
-            console.error("Daily reminder email error", error);
+        } catch {
             toast.error("Failed to send reminder email");
         } finally {
             setIsSendingReminder(false);
         }
     };
 
-    // ─── Save settings ──────────────────────────────────────────
+    // ─── Save settings (local) ──────────────────────────────────
     const saveSettings = (newSettings: Settings) => {
         localStorage.setItem("appSettings", JSON.stringify(newSettings));
         setSettings(newSettings);
@@ -143,7 +123,7 @@ export default function SettingsPage() {
         toast.success(`Theme: ${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)}`);
     };
 
-    // ─── Toggle handlers ──────────────────────────────────────
+    // ─── Toggle daily reminder ─────────────────────────────────
     const toggleDailyReminder = async () => {
         const updated = { ...settings, dailyReminder: !settings.dailyReminder };
         saveSettings(updated);
@@ -153,29 +133,34 @@ export default function SettingsPage() {
         if (token) {
             await updateDailyReminderPreference(updated.dailyReminder);
         } else {
-            toast("Log in to persist your reminder preference", {
-                icon: "ℹ️",
-                duration: 5000,
-            });
+            toast("Log in to persist your reminder preference", { icon: "ℹ️", duration: 5000 });
         }
     };
 
+    // ─── Toggle weekly digest ──────────────────────────────────
     const toggleWeeklyDigest = () => {
         const updated = { ...settings, weeklyDigest: !settings.weeklyDigest };
         saveSettings(updated);
         toast.success(updated.weeklyDigest ? "Weekly digest enabled" : "Weekly digest disabled");
     };
 
-    // ─── Export to PDF ──────────────────────────────────────────
-    const handleExportPDF = () => {
+    // ─── Export PDF (fetches from DB) ───────────────────────────
+    const handleExportPDF = async () => {
         setIsExporting(true);
         try {
-            const stored = localStorage.getItem("diaryEntries");
-            const entries = stored ? JSON.parse(stored) : [];
+            const token = localStorage.getItem("token");
+            if (!token) {
+                toast.error("You must be logged in to export.");
+                return;
+            }
 
-            if (entries.length === 0) {
+            const response = await axios.get("/api/entries", {
+                headers: getAuthHeaders(),
+            });
+
+            const entries = response.data.entries;
+            if (!entries || entries.length === 0) {
                 toast.error("No entries to export");
-                setIsExporting(false);
                 return;
             }
 
@@ -184,7 +169,7 @@ export default function SettingsPage() {
 
             // Header
             doc.setFontSize(22);
-            doc.setTextColor(79, 70, 229); // indigo-600
+            doc.setTextColor(79, 70, 229);
             doc.text("Note of Life", pageWidth / 2, 20, { align: "center" });
 
             doc.setFontSize(12);
@@ -225,7 +210,6 @@ export default function SettingsPage() {
                 },
             });
 
-            // Footer
             const finalY = (doc as any).lastAutoTable.finalY || 250;
             doc.setFontSize(9);
             doc.setTextColor(150);
@@ -238,16 +222,16 @@ export default function SettingsPage() {
 
             doc.save(`note-of-life-entries-${new Date().toISOString().slice(0, 10)}.pdf`);
             toast.success(`Exported ${entries.length} entries as PDF`);
-        } catch (error) {
+        } catch (error: any) {
             console.error("PDF export error:", error);
-            toast.error("Failed to export PDF");
+            toast.error(error.response?.data?.message || "Failed to export PDF");
         } finally {
             setIsExporting(false);
         }
     };
 
-    // ─── Clear entries ─────────────────────────────────────────
-    const handleClearEntries = () => {
+    // ─── Clear all entries (API delete) ──────────────────────────
+    const handleClearEntries = async () => {
         if (!clearConfirm) {
             setClearConfirm(true);
             toast("Click again to confirm clearing all entries", {
@@ -258,17 +242,26 @@ export default function SettingsPage() {
         }
         setIsClearing(true);
         try {
-            localStorage.setItem("diaryEntries", JSON.stringify([]));
-            toast.success("All entries cleared");
+            const token = localStorage.getItem("token");
+            if (!token) {
+                toast.error("You must be logged in.");
+                return;
+            }
+            await axios.delete("/api/entries", {
+                headers: getAuthHeaders(),
+            });
+            toast.success("All entries cleared from your account");
             setClearConfirm(false);
+            // Optionally refresh the diary page if needed
             setTimeout(() => router.push("/diary"), 500);
-        } catch {
-            toast.error("Failed to clear entries");
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Failed to clear entries");
         } finally {
             setIsClearing(false);
         }
     };
 
+    // ─── Loading state ──────────────────────────────────────────
     if (isLoading) {
         return (
             <div className="flex min-h-screen items-center justify-center">
@@ -277,6 +270,7 @@ export default function SettingsPage() {
         );
     }
 
+    // ─── Render ──────────────────────────────────────────────────
     return (
         <main className="min-h-screen px-4 py-8 md:px-8 md:py-12">
             {/* Background blobs */}
