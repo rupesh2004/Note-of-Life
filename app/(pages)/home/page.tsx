@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import {
@@ -16,9 +17,29 @@ import {
     BookOpen,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import axios from "axios";
 
 export default function HomePage() {
     const { theme } = useTheme();
+    const [statsData, setStatsData] = useState<{ totalUsers: number; totalEntries: number } | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const response = await axios.get("/api/stats");
+                console.log(response.data)
+                setStatsData(response.data);
+            } catch (error) {
+                console.error("Failed to fetch stats:", error);
+                // Fallback to static numbers if API fails
+                setStatsData({ totalUsers: 12000, totalEntries: 85000 });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchStats();
+    }, []);
 
     const features = [
         {
@@ -90,8 +111,14 @@ export default function HomePage() {
     ];
 
     const stats = [
-        { number: "12K+", label: "Active Journalers" },
-        { number: "85K+", label: "Entries Written" },
+        { 
+            number: isLoading ? "..." : `${(statsData?.totalUsers || 0).toLocaleString()}+`, 
+            label: "Active Journalers" 
+        },
+        { 
+            number: isLoading ? "..." : `${(statsData?.totalEntries || 0).toLocaleString()}+`, 
+            label: "Entries Written" 
+        },
         { number: "4.9★", label: "Average Rating" },
         { number: "150+", label: "Countries" },
     ];

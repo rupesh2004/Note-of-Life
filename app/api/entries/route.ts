@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
-import { createEntry, getEntriesByUser } from "@/lib/model/Note";
-import { encrypt, encryptArray, decrypt, decryptArray } from "@/lib/encryption";
+import clientPromise from "@/lib/mongodb"; // ✅ Added missing import
+import { encrypt, encryptArray, decrypt, decryptArray } from "@/lib/encryption"; // Adjust if you don't use encryption
 
-// ─── POST: Create a new entry (encrypt) ───────────────────────
+// ─── POST: Save a new entry ──────────────────────────────────
 export async function POST(req: NextRequest) {
     try {
         const authHeader = req.headers.get("Authorization");
@@ -24,24 +24,29 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Encrypt the fields
+        // Encrypt fields (skip if you don't use encryption)
         const encryptedTitle = encrypt(title.trim());
         const encryptedContent = encrypt(content.trim());
         const encryptedMood = mood ? encrypt(mood) : encrypt("neutral");
         const encryptedTags = tags ? encryptArray(tags) : [];
 
-        const entry = await createEntry({
+        const client = await clientPromise;
+        const db = client.db("note-of-life");
+        const now = new Date().toISOString();
+        const newEntry = {
             email: payload.email,
             title: encryptedTitle,
             content: encryptedContent,
             mood: encryptedMood,
             tags: encryptedTags,
-            date: date || new Date().toISOString(),
-        });
+            date: date || now,
+            createdAt: now,
+            updatedAt: now,
+        };
 
-        // Return the entry without decrypting (we don't need to send back encrypted)
-        // But we can decrypt for the response, or just send a success message.
-        // We'll send a decrypted version for immediate display if needed.
+        const result = await db.collection("entries").insertOne(newEntry);
+        const entry = { _id: result.insertedId.toString(), ...newEntry };
+
         return NextResponse.json({
             message: "Entry saved successfully",
             entry: {
@@ -61,7 +66,7 @@ export async function POST(req: NextRequest) {
     }
 }
 
-// ─── GET: Fetch all entries for the user (decrypt) ────────────
+// ─── GET: Fetch all entries ──────────────────────────────────
 export async function GET(req: NextRequest) {
     try {
         const authHeader = req.headers.get("Authorization");
@@ -74,20 +79,59 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ message: "Invalid token" }, { status: 401 });
         }
 
-        const entries = await getEntriesByUser(payload.email);
+        const client = await clientPromise;
+        const db = client.db("note-of-life");
+        const entries = await db
+            .collection("entries")
+            .find({ email: payload.email })
+            .sort({ date: -1 })
+            .toArray();
 
-        // Decrypt each entry
-        const decryptedEntries = entries.map(entry => ({
-            ...entry,
+        const decrypted = entries.map((entry) => ({
+            _id: entry._id.toString(),
+            email: entry.email,
             title: decrypt(entry.title),
             content: decrypt(entry.content),
             mood: decrypt(entry.mood),
             tags: decryptArray(entry.tags),
+            date: entry.date,
+            createdAt: entry.createdAt,
+            updatedAt: entry.updatedAt,
         }));
 
-        return NextResponse.json({ entries: decryptedEntries });
+        return NextResponse.json({ entries: decrypted });
     } catch (error) {
         console.error("Get entries error:", error);
+        return NextResponse.json(
+            { message: "Internal server error" },
+            { status: 500 }
+        );
+    }
+}
+
+// ─── DELETE: Remove all entries for the authenticated user ──
+export async function DELETE(req: NextRequest) {
+    try {
+        const authHeader = req.headers.get("Authorization");
+        const token = authHeader?.split(" ")[1];
+        if (!token) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+        const payload = verifyToken(token);
+        if (!payload) {
+            return NextResponse.json({ message: "Invalid token" }, { status: 401 });
+        }
+
+        const client = await clientPromise; // ✅ Now clientPromise is defined
+        const db = client.db("note-of-life");
+        const result = await db.collection("entries").deleteMany({ email: payload.email });
+
+        return NextResponse.json({
+            message: `Deleted ${result.deletedCount} entries`,
+            deletedCount: result.deletedCount,
+        });
+    } catch (error) {
+        console.error("Delete all entries error:", error);
         return NextResponse.json(
             { message: "Internal server error" },
             { status: 500 }
