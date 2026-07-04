@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import axios from "axios";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
     Mail,
     Lock,
@@ -18,26 +18,45 @@ import toast from "react-hot-toast";
 
 export default function LoginPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
+    // ─── Handle token from OAuth redirect ──────────────────────
+    useEffect(() => {
+        if (!searchParams) return;
+
+        const token = searchParams.get("token");
+        if (token) {
+            localStorage.setItem("token", token);
+            toast.success("Signed in successfully!");
+            router.push("/home");
+            return;
+        }
+
+        const error = searchParams.get("error");
+        if (error) {
+            toast.error("Authentication failed. Please try again.");
+        }
+    }, [searchParams, router]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if(!email || !password){
+        if (!email || !password) {
             toast.error("Please fill in all required fields.");
             return;
         }
         setIsLoading(true);
-        try{
-            const response = await axios.post("/api/auth/login",{
-                email,password
-            })
-            const { token, user, success, message } = response.data;
-            if(response.status === 200 && success){
-                console.log("Login successful:", response.data);
+        try {
+            const response = await axios.post("/api/auth/login", {
+                email,
+                password,
+            });
+            const { token, success, message } = response.data;
+            if (response.status === 200 && success) {
                 localStorage.setItem("token", token);
                 toast.success("Welcome back!");
                 setTimeout(() => {
@@ -45,32 +64,36 @@ export default function LoginPage() {
                 }, 500);
             } else {
                 toast.error(message || "Login failed. Please check your credentials.");
-                return;
             }
-
-        }catch(error : any){
+        } catch (error: any) {
             const message = error.response?.data?.message || "An error occurred during login";
             toast.error(message);
-        }finally{
+        } finally {
             setIsLoading(false);
         }
-    }
+    };
 
-
+    // ─── Social login handlers ──────────────────────────────────
     const handleSocialLogin = (provider: string) => {
-        // Simulate social login
+        if (provider === "google") {
+            window.location.href = "/api/auth/google";
+            return;
+        }
+        if (provider === "github") {
+            window.location.href = "/api/auth/github";
+            return;
+        }
+        // Apple – simulated
         setIsLoading(true);
         setTimeout(() => {
-            window.localStorage.setItem("authToken", "demo-token");
             setIsLoading(false);
-            toast.success(`Signed in with ${provider}!`);
-            router.push("/home");
+            toast("🍎 Apple login coming soon!", { icon: "🍎" });
         }, 1000);
     };
 
     return (
         <main className="min-h-screen flex items-center justify-center px-6 py-12">
-            {/* Background decorative blobs */}
+            {/* Background blobs */}
             <div className="absolute inset-0 -z-10 overflow-hidden">
                 <div className="absolute -top-40 -right-40 h-150 w-150 rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/5" />
                 <div className="absolute -bottom-40 -left-40 h-150 w-150 rounded-full bg-pink-500/10 blur-3xl dark:bg-pink-500/5" />
@@ -78,7 +101,6 @@ export default function LoginPage() {
             </div>
 
             <div className="w-full max-w-md">
-                {/* Card */}
                 <div className="rounded-3xl border border-gray-200/50 bg-white/70 p-8 shadow-2xl backdrop-blur-xl dark:border-gray-800/50 dark:bg-slate-900/70">
                     {/* Logo / Brand */}
                     <div className="mb-8 text-center">
@@ -177,7 +199,7 @@ export default function LoginPage() {
                             </label>
                         </div>
 
-                        {/* Submit button */}
+                        {/* Submit */}
                         <button
                             type="submit"
                             disabled={isLoading}
@@ -251,7 +273,7 @@ export default function LoginPage() {
                         </Link>
                     </p>
 
-                    {/* Demo credentials hint (optional) */}
+                    {/* Demo hint */}
                     <div className="mt-4 rounded-lg border border-dashed border-gray-200 bg-gray-50/50 p-3 text-center text-xs text-gray-500 dark:border-gray-800 dark:bg-slate-800/30 dark:text-gray-400">
                         <p className="flex items-center justify-center gap-1">
                             <Sparkles size={12} className="text-indigo-400" />
