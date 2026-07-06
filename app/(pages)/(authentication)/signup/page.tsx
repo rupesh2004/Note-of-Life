@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { FaGoogle, FaGithub, FaApple } from "react-icons/fa";
 import toast from "react-hot-toast";
+import LegalModal from "../../../components/LegalModal";
 
 export default function SignupPage() {
     const router = useRouter();
@@ -28,30 +29,42 @@ export default function SignupPage() {
     const [agreeTerms, setAgreeTerms] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent)=>{
+    // ─── Legal Modal state ──────────────────────────────────────
+    const [legalModalOpen, setLegalModalOpen] = useState(false);
+    const [legalModalType, setLegalModalType] = useState<"privacy" | "terms">("privacy");
+
+    const openLegalModal = (type: "privacy" | "terms") => {
+        setLegalModalType(type);
+        setLegalModalOpen(true);
+    };
+
+    const closeLegalModal = () => setLegalModalOpen(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if(!name || !email || !password || !confirmPassword){
+        if (!name || !email || !password || !confirmPassword) {
             toast.error("Please fill in all required fields");
             return;
         }
-        if(password.length < 8){
+        if (password.length < 8) {
             toast.error("Password must be at least 8 characters long");
             return;
         }
-
-        if(password !== confirmPassword){
+        if (password !== confirmPassword) {
             toast.error("Passwords do not match");
             return;
         }
-        if(!agreeTerms){
+        if (!agreeTerms) {
             toast.error("You must agree to the terms and conditions");
             return;
         }
         setIsLoading(true);
 
-        try{
+        try {
             const response = await axios.post("/api/auth/signup", {
-                name, email, password
+                name,
+                email,
+                password,
             });
             const { token, user } = response.data;
             console.log("Signup successful:", response.data);
@@ -60,28 +73,21 @@ export default function SignupPage() {
             setTimeout(() => {
                 router.push("/home");
             }, 800);
-        } catch(error : any){
+        } catch (error: any) {
             const message = error.response?.data?.message || "An error occurred during signup";
             toast.error(message);
-        }finally{
+        } finally {
             setIsLoading(false);
         }
-
-    }
+    };
 
     const handleSocialSignup = (provider: string) => {
-        setIsLoading(true);
-        setTimeout(() => {
-            window.localStorage.setItem("authToken", "demo-token");
-            setIsLoading(false);
-            toast.success(`Signed up with ${provider}!`);
-            router.push("/home");
-        }, 1000);
+        toast.success("Feature coming soon")
     };
 
     return (
         <main className="min-h-screen flex items-center justify-center px-6 py-12">
-            {/* Background decorative blobs */}
+            {/* Background blobs (unchanged) */}
             <div className="absolute inset-0 -z-10 overflow-hidden">
                 <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/5" />
                 <div className="absolute -bottom-40 -left-40 h-[600px] w-[600px] rounded-full bg-pink-500/10 blur-3xl dark:bg-pink-500/5" />
@@ -108,7 +114,7 @@ export default function SignupPage() {
 
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Full Name */}
+                        {/* Full Name – unchanged */}
                         <div>
                             <label
                                 htmlFor="name"
@@ -117,9 +123,7 @@ export default function SignupPage() {
                                 Full Name
                             </label>
                             <div className="relative mt-1">
-                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500">
-                                    <User size={18} />
-                                </div>
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
                                 <input
                                     id="name"
                                     type="text"
@@ -132,7 +136,7 @@ export default function SignupPage() {
                             </div>
                         </div>
 
-                        {/* Email */}
+                        {/* Email – unchanged */}
                         <div>
                             <label
                                 htmlFor="email"
@@ -141,9 +145,7 @@ export default function SignupPage() {
                                 Email Address
                             </label>
                             <div className="relative mt-1">
-                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500">
-                                    <Mail size={18} />
-                                </div>
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
                                 <input
                                     id="email"
                                     type="email"
@@ -156,7 +158,7 @@ export default function SignupPage() {
                             </div>
                         </div>
 
-                        {/* Password */}
+                        {/* Password – unchanged */}
                         <div>
                             <label
                                 htmlFor="password"
@@ -165,9 +167,7 @@ export default function SignupPage() {
                                 Password
                             </label>
                             <div className="relative mt-1">
-                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500">
-                                    <Lock size={18} />
-                                </div>
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
                                 <input
                                     id="password"
                                     type={showPassword ? "text" : "password"}
@@ -180,7 +180,7 @@ export default function SignupPage() {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                                 >
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
@@ -190,7 +190,7 @@ export default function SignupPage() {
                             </p>
                         </div>
 
-                        {/* Confirm Password */}
+                        {/* Confirm Password – unchanged */}
                         <div>
                             <label
                                 htmlFor="confirm-password"
@@ -199,9 +199,7 @@ export default function SignupPage() {
                                 Confirm Password
                             </label>
                             <div className="relative mt-1">
-                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500">
-                                    <Lock size={18} />
-                                </div>
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
                                 <input
                                     id="confirm-password"
                                     type={showConfirmPassword ? "text" : "password"}
@@ -214,14 +212,14 @@ export default function SignupPage() {
                                 <button
                                     type="button"
                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                                 >
                                     {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
                             </div>
                         </div>
 
-                        {/* Terms & Conditions */}
+                        {/* ─── Terms & Conditions with Modal ─── */}
                         <div className="flex items-start gap-2 pt-1">
                             <input
                                 id="terms"
@@ -235,24 +233,26 @@ export default function SignupPage() {
                                 className="text-sm text-gray-600 dark:text-gray-400"
                             >
                                 I agree to the{" "}
-                                <Link
-                                    href="/terms"
-                                    className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                <button
+                                    type="button"
+                                    onClick={() => openLegalModal("terms")}
+                                    className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 underline-offset-2 hover:underline focus:outline-none"
                                 >
                                     Terms & Conditions
-                                </Link>
+                                </button>
                                 {" "}and{" "}
-                                <Link
-                                    href="/privacy"
-                                    className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                <button
+                                    type="button"
+                                    onClick={() => openLegalModal("privacy")}
+                                    className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 underline-offset-2 hover:underline focus:outline-none"
                                 >
                                     Privacy Policy
-                                </Link>
+                                </button>
                                 .
                             </label>
                         </div>
 
-                        {/* Submit button */}
+                        {/* Submit button – unchanged */}
                         <button
                             type="submit"
                             disabled={isLoading}
@@ -266,16 +266,13 @@ export default function SignupPage() {
                             ) : (
                                 <>
                                     Create Account
-                                    <ArrowRight
-                                        size={18}
-                                        className="transition-transform group-hover:translate-x-1"
-                                    />
+                                    <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
                                 </>
                             )}
                         </button>
                     </form>
 
-                    {/* Divider */}
+                    {/* Divider – unchanged */}
                     <div className="relative my-6">
                         <div className="absolute inset-0 flex items-center">
                             <div className="w-full border-t border-gray-200 dark:border-gray-700" />
@@ -287,7 +284,7 @@ export default function SignupPage() {
                         </div>
                     </div>
 
-                    {/* Social buttons */}
+                    {/* Social buttons – unchanged */}
                     <div className="grid grid-cols-3 gap-3">
                         <button
                             onClick={() => handleSocialSignup("google")}
@@ -315,7 +312,7 @@ export default function SignupPage() {
                         </button>
                     </div>
 
-                    {/* Login link */}
+                    {/* Login link – unchanged */}
                     <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
                         Already have an account?{" "}
                         <Link
@@ -325,16 +322,15 @@ export default function SignupPage() {
                             Sign in instead
                         </Link>
                     </p>
-
-                    {/* Demo hint */}
-                    <div className="mt-4 rounded-lg border border-dashed border-gray-200 bg-gray-50/50 p-3 text-center text-xs text-gray-500 dark:border-gray-800 dark:bg-slate-800/30 dark:text-gray-400">
-                        <p className="flex items-center justify-center gap-1">
-                            <Sparkles size={12} className="text-indigo-400" />
-                            Demo: any valid input works (password must be 8+ chars)
-                        </p>
-                    </div>
                 </div>
             </div>
+
+            {/* ─── Legal Modal ─── */}
+            <LegalModal
+                isOpen={legalModalOpen}
+                onClose={closeLegalModal}
+                type={legalModalType}
+            />
         </main>
     );
 }

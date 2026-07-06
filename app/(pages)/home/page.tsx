@@ -19,28 +19,66 @@ import {
 import { motion } from "framer-motion";
 import axios from "axios";
 
+// ─── Mood config for the card ──────────────────────────────────
+const moodConfig: Record<string, { label: string; emoji: string; color: string }> = {
+    happy: { label: "Feeling grateful", emoji: "😊", color: "text-emerald-500" },
+    calm: { label: "Feeling peaceful", emoji: "😌", color: "text-rose-500" },
+    proud: { label: "Feeling accomplished", emoji: "🌟", color: "text-indigo-500" },
+    joyful: { label: "Feeling joyful", emoji: "😄", color: "text-yellow-500" },
+    relaxed: { label: "Feeling relaxed", emoji: "🧘", color: "text-blue-500" },
+    sad: { label: "Feeling sad", emoji: "😔", color: "text-gray-400" },
+    angry: { label: "Feeling frustrated", emoji: "😤", color: "text-red-500" },
+    neutral: { label: "How are you feeling?", emoji: "😐", color: "text-gray-400" },
+};
+
 export default function HomePage() {
     const { theme } = useTheme();
     const [statsData, setStatsData] = useState<{ totalUsers: number; totalEntries: number } | null>(null);
+    const [cardData, setCardData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isCardLoading, setIsCardLoading] = useState(true);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
                 const response = await axios.get("/api/stats");
-                console.log(response.data)
                 setStatsData(response.data);
             } catch (error) {
                 console.error("Failed to fetch stats:", error);
-                // Fallback to static numbers if API fails
                 setStatsData({ totalUsers: 12000, totalEntries: 85000 });
             } finally {
                 setIsLoading(false);
             }
         };
         fetchStats();
+
+        // ─── Check login status ──────────────────────────────────
+        const token = localStorage.getItem("token");
+        setIsLoggedIn(!!token);
+
+        if (token) {
+            // ─── Fetch card data if user is logged in ──────────────
+            axios
+                .get("/api/user/card-data", {
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                .then((res) => {
+                    setCardData(res.data);
+                })
+                .catch((err) => {
+                    console.error("Failed to fetch card data:", err);
+                    setCardData(null);
+                })
+                .finally(() => setIsCardLoading(false));
+        } else {
+            // ─── Not logged in: show only placeholder animation ───
+            setCardData(null);
+            setIsCardLoading(false);
+        }
     }, []);
 
+    // ─── Features ──────────────────────────────────────────────
     const features = [
         {
             icon: PenSquare,
@@ -86,6 +124,7 @@ export default function HomePage() {
         },
     ];
 
+    // ─── Testimonials ────────────────────────────────────────────
     const testimonials = [
         {
             quote:
@@ -110,6 +149,7 @@ export default function HomePage() {
         },
     ];
 
+    // ─── Stats ───────────────────────────────────────────────────
     const stats = [
         { 
             number: isLoading ? "..." : `${(statsData?.totalUsers || 0).toLocaleString()}+`, 
@@ -123,10 +163,21 @@ export default function HomePage() {
         { number: "150+", label: "Countries" },
     ];
 
+    // ─── Get mood display ──────────────────────────────────────
+    const getMoodDisplay = (mood: string) => {
+        return moodConfig[mood] || moodConfig.neutral;
+    };
+    const cardMood = cardData?.latestEntry?.mood || "neutral";
+    const moodDisplay = getMoodDisplay(cardMood);
+
+    // ─── Decide what to show in the card ───────────────────────
+    const hasEntry = isLoggedIn && cardData?.latestEntry;
+    const showReadMore = isLoggedIn && hasEntry;
+
     return (
         <main className="min-h-screen overflow-x-hidden">
             {/* ─── HERO SECTION ─── */}
-            <section className="relative isolate px-6 pt-24 pb-20 md:pt-32 md:pb-28 lg:pt-40 lg:pb-32">
+            <section className="relative isolate px-6 pt-10 pb-16 md:pt-14 md:pb-20 lg:pt-18 lg:pb-24">
                 {/* Background gradient blobs */}
                 <div className="absolute inset-0 -z-10 overflow-hidden">
                     <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-indigo-500/10 blur-3xl dark:bg-indigo-500/5" />
@@ -135,13 +186,13 @@ export default function HomePage() {
                 </div>
 
                 <div className="mx-auto max-w-7xl">
-                    <div className="grid gap-16 lg:grid-cols-2 lg:gap-12 items-center">
+                    <div className="grid gap-12 lg:grid-cols-2 lg:gap-12 items-center">
                         {/* Left side: Text */}
                         <motion.div
                             initial={{ opacity: 0, y: 30 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.6 }}
-                            className="space-y-8"
+                            className="space-y-6"
                         >
                             {/* Badge */}
                             <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200/50 bg-indigo-50/50 px-4 py-1.5 text-sm font-medium text-indigo-700 backdrop-blur-sm dark:border-indigo-800/30 dark:bg-indigo-950/30 dark:text-indigo-300">
@@ -157,7 +208,7 @@ export default function HomePage() {
                                 </span>
                             </h1>
 
-                            <p className="max-w-lg text-lg text-gray-600 dark:text-gray-400 md:text-xl">
+                            <p className="max-w-lg text-lg text-gray-600 dark:text-gray-400 md:text-l">
                                 Note of Life is your personal diary for capturing
                                 memories, tracking emotions, and telling your story.
                                 Start writing your legacy today.
@@ -185,7 +236,7 @@ export default function HomePage() {
                             </div>
 
                             {/* Social proof */}
-                            <div className="flex items-center gap-6 pt-4">
+                            <div className="flex items-center gap-6 pt-2">
                                 <div className="flex -space-x-2">
                                     {[
                                         "https://i.pravatar.cc/100?img=1",
@@ -214,7 +265,7 @@ export default function HomePage() {
                             </div>
                         </motion.div>
 
-                        {/* Right side: Hero illustration */}
+                        {/* ─── Right side: Hero illustration – DYNAMIC CARD ─── */}
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
@@ -233,30 +284,74 @@ export default function HomePage() {
                                                 Note of Life
                                             </h3>
                                             <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                Today's entry
+                                                {isLoggedIn ? "Today's entry" : "Your diary"}
                                             </p>
                                         </div>
                                         <div className="ml-auto flex items-center gap-1 text-sm text-gray-400">
-                                            <Heart size={14} className="text-pink-500" />
-                                            <span>Feeling grateful</span>
+                                            <Heart
+                                                size={14}
+                                                className={`${
+                                                    isLoggedIn && hasEntry
+                                                        ? moodDisplay.color
+                                                        : "text-gray-300"
+                                                }`}
+                                            />
+                                            <span>
+                                                {isLoggedIn && hasEntry
+                                                    ? moodDisplay.label
+                                                    : "No entry yet"}
+                                            </span>
                                         </div>
                                     </div>
 
                                     <div className="py-4 space-y-3">
-                                        <div className="h-2 w-3/4 rounded-full bg-gray-200 dark:bg-gray-700" />
-                                        <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700" />
-                                        <div className="h-2 w-5/6 rounded-full bg-gray-200 dark:bg-gray-700" />
-                                        <div className="h-2 w-2/3 rounded-full bg-gray-200 dark:bg-gray-700" />
+                                        {isCardLoading ? (
+                                            // Skeleton
+                                            <>
+                                                <div className="h-2 w-3/4 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                                                <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                                                <div className="h-2 w-5/6 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                                                <div className="h-2 w-2/3 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                                            </>
+                                        ) : isLoggedIn && hasEntry ? (
+                                            // Real entry
+                                            <>
+                                                <h4 className="font-semibold text-gray-900 dark:text-white">
+                                                    {cardData.latestEntry.title}
+                                                </h4>
+                                                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                                                    {cardData.latestEntry.contentPreview}
+                                                </p>
+                                            </>
+                                        ) : (
+                                            // Placeholder for non‑logged‑in or no entry
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                {isLoggedIn
+                                                    ? "Write your first entry to see it here."
+                                                    : "Sign in to see your latest entry."}
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="flex items-center justify-between border-t border-gray-200/50 pt-4 dark:border-gray-800/50">
                                         <span className="text-sm text-gray-400">
-                                            📅 Today at 7:42 PM
+                                            📅 {isLoggedIn && cardData?.currentDate
+                                                ? cardData.currentDate
+                                                : "Today at 7:42 PM"}
                                         </span>
-                                        <span className="flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400">
-                                            Read more
-                                            <ArrowRight size={14} />
-                                        </span>
+                                        {showReadMore ? (
+                                            <Link
+                                                href={`/write?id=${cardData.latestEntry._id}`}
+                                                className="flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                                            >
+                                                Read more
+                                                <ArrowRight size={14} />
+                                            </Link>
+                                        ) : (
+                                            <span className="text-sm text-gray-400">
+                                                {isLoggedIn ? "Write now" : "Sign in"}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 
@@ -268,7 +363,9 @@ export default function HomePage() {
                                 >
                                     <span className="flex items-center gap-2 text-sm font-medium">
                                         <Sparkles size={16} className="text-yellow-500" />
-                                        ✨ 3 insights today
+                                        ✨ {isLoggedIn && !isCardLoading
+                                            ? `${cardData?.insightsCount || 0} insights today`
+                                            : "3 insights today"}
                                     </span>
                                 </motion.div>
 
@@ -279,7 +376,9 @@ export default function HomePage() {
                                 >
                                     <span className="flex items-center gap-2 text-sm font-medium">
                                         <Calendar size={16} className="text-indigo-500" />
-                                        47 days streak 🔥
+                                        {isLoggedIn && !isCardLoading
+                                            ? `${cardData?.streak || 0} days streak 🔥`
+                                            : "47 days streak 🔥"}
                                     </span>
                                 </motion.div>
                             </div>

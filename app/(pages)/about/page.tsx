@@ -6,14 +6,10 @@ import {
     Heart,
     Users,
     Target,
-    Zap,
-    Award,
     PenSquare,
     ArrowRight,
     Quote,
     BookOpen,
-    Smile,
-    Lightbulb,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -51,22 +47,10 @@ export default function AboutPage() {
 
     const team = [
         {
-            name: "Alex Rivera",
-            role: "Founder & CEO",
-            bio: "Former journalist who turned to journaling after a burnout. Believes in the healing power of words.",
-            image: "https://i.pravatar.cc/150?img=11",
-        },
-        {
-            name: "Jamie Chen",
-            role: "Lead Designer",
-            bio: "Designs with empathy. Loves creating spaces that feel like a warm hug for your thoughts.",
-            image: "https://i.pravatar.cc/150?img=12",
-        },
-        {
-            name: "Taylor Kim",
-            role: "Full-Stack Developer",
-            bio: "Codes with care. Ensures your memories are safe, secure, and beautifully presented.",
-            image: "https://i.pravatar.cc/150?img=13",
+            name: "Rupesh Bhosale",
+            role: "Freelance Developer & Founder",
+            bio: "Passionate about building meaningful digital experiences. Created Note of Life to help people preserve their memories and emotions through the power of journaling.",
+            image: "https://avatars.githubusercontent.com/rupesh2004",
         },
     ];
 
@@ -137,14 +121,14 @@ export default function AboutPage() {
                             </h2>
                             <div className="mt-4 space-y-4 text-gray-600 dark:text-gray-400">
                                 <p>
-                                    In early 2023, our founder Alex was going through a
-                                    challenging period. They started writing daily—just a
+                                    In early 2023, our founder Rupesh was going through a
+                                    challenging period. He started writing daily—just a
                                     few lines—and soon realized how transformative the
                                     habit was.
                                 </p>
                                 <p>
                                     But most journaling apps felt either too clinical or
-                                    too cluttered. So Alex decided to build something
+                                    too cluttered. So Rupesh decided to build something
                                     different: a diary that felt like a close friend—warm,
                                     intuitive, and deeply personal.
                                 </p>
@@ -253,40 +237,37 @@ export default function AboutPage() {
                         <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
                             Meet the{" "}
                             <span className="bg-gradient-to-r from-indigo-600 to-pink-500 bg-clip-text text-transparent">
-                                Team
+                                Creator
                             </span>
                         </h2>
                         <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-400">
-                            A small, passionate group of storytellers and builders.
+                            A passionate developer dedicated to making journaling beautiful and accessible.
                         </p>
                     </motion.div>
 
-                    <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                        {team.map((member, i) => (
-                            <motion.div
-                                key={i}
-                                initial={{ opacity: 0, y: 30 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.5, delay: i * 0.1 }}
-                                viewport={{ once: true }}
-                                className="rounded-2xl border border-gray-200/50 bg-white/60 p-6 text-center backdrop-blur-sm transition-all hover:border-indigo-300/50 hover:shadow-lg dark:border-gray-800/50 dark:bg-slate-900/60"
-                            >
-                                <img
-                                    src={member.image}
-                                    alt={member.name}
-                                    className="mx-auto h-24 w-24 rounded-full object-cover border-2 border-indigo-200 dark:border-indigo-800"
-                                />
-                                <h3 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
-                                    {member.name}
-                                </h3>
-                                <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-                                    {member.role}
-                                </p>
-                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                    {member.bio}
-                                </p>
-                            </motion.div>
-                        ))}
+                    <div className="flex justify-center">
+                        <motion.div
+                            initial={{ opacity: 0, y: 30 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5 }}
+                            viewport={{ once: true }}
+                            className="rounded-2xl border border-gray-200/50 bg-white/60 p-6 text-center backdrop-blur-sm transition-all hover:border-indigo-300/50 hover:shadow-lg dark:border-gray-800/50 dark:bg-slate-900/60 max-w-sm"
+                        >
+                            <img
+                                src={team[0].image}
+                                alt={team[0].name}
+                                className="mx-auto h-28 w-28 rounded-full object-cover border-2 border-indigo-200 dark:border-indigo-800"
+                            />
+                            <h3 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
+                                {team[0].name}
+                            </h3>
+                            <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                                {team[0].role}
+                            </p>
+                            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                {team[0].bio}
+                            </p>
+                        </motion.div>
                     </div>
                 </div>
             </section>

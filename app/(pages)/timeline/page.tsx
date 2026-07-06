@@ -290,6 +290,7 @@ export default function TimelinePage() {
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
     const [error, setError] = useState<string | null>(null);
     const [showScrollTop, setShowScrollTop] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
     const getAuthHeaders = () => {
@@ -300,23 +301,24 @@ export default function TimelinePage() {
     const fetchEntries = async () => {
         try {
             const token = localStorage.getItem("token");
-            if (!token) {
-                router.replace("/login");
-                return;
+            if (token) {
+                setIsAuthenticated(true);
+                const response = await axios.get("/api/entries", {
+                    headers: getAuthHeaders(),
+                });
+                const fetchedEntries: DiaryEntry[] = response.data.entries.map((entry: any) => ({
+                    id: entry._id,
+                    title: entry.title,
+                    content: entry.content,
+                    date: entry.date,
+                    mood: entry.mood || "neutral",
+                    tags: entry.tags || [],
+                }));
+                setEntries(fetchedEntries);
+                setError(null);
+            } else {
+                setIsAuthenticated(false);
             }
-            const response = await axios.get("/api/entries", {
-                headers: getAuthHeaders(),
-            });
-            const fetchedEntries: DiaryEntry[] = response.data.entries.map((entry: any) => ({
-                id: entry._id,
-                title: entry.title,
-                content: entry.content,
-                date: entry.date,
-                mood: entry.mood || "neutral",
-                tags: entry.tags || [],
-            }));
-            setEntries(fetchedEntries);
-            setError(null);
         } catch (err: any) {
             const msg = err.response?.data?.message || "Could not load entries.";
             setError(msg);
@@ -399,6 +401,38 @@ export default function TimelinePage() {
         return (
             <div className="flex min-h-screen items-center justify-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+            </div>
+        );
+    }
+
+    if (!isAuthenticated) {
+        return (
+            <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
+                <div className="rounded-3xl border border-gray-200/50 bg-white/70 p-8 shadow-2xl backdrop-blur-xl dark:border-gray-800/50 dark:bg-slate-900/70 max-w-md text-center">
+                    <div className="mb-6 flex justify-center">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 shadow-lg">
+                            <BookOpen className="h-8 w-8 text-white" />
+                        </div>
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Your Timeline</h2>
+                    <p className="mt-2 text-gray-600 dark:text-gray-400">
+                        Please log in to view your journal timeline.
+                    </p>
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                        <Link
+                            href="/login"
+                            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-pink-500 px-6 py-2.5 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-105"
+                        >
+                            Log In
+                        </Link>
+                        <Link
+                            href="/signup"
+                            className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-300 px-6 py-2.5 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-slate-800"
+                        >
+                            Create Account
+                        </Link>
+                    </div>
+                </div>
             </div>
         );
     }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import axios from "axios";
 import {
     FaEnvelope,
     FaPhoneAlt,
@@ -45,13 +46,12 @@ export default function ContactPage() {
 
         setIsSubmitting(true);
         try {
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            console.log("Form submitted:", formData);
+            const response = await axios.post("/api/notifications/user-contact", formData);
             setIsSuccess(true);
             setFormData({ name: "", email: "", subject: "", message: "" });
             setTimeout(() => setIsSuccess(false), 5000);
-        } catch (err) {
-            setError("Something went wrong. Please try again.");
+        } catch (err: any) {
+            setError(err.response?.data?.message || "Something went wrong. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
@@ -61,8 +61,8 @@ export default function ContactPage() {
         {
             icon: FaEnvelope,
             title: "Email",
-            value: "bhosalerupesh67@gmail.com",
-            link: "mailto:bhosalerupesh67@gmail.com",
+            value: "noteoflife52@gmail.com",
+            link: "mailto:noteoflife52@gmail.com",
             color: "from-blue-500 to-indigo-500",
         },
         {
@@ -152,12 +152,13 @@ export default function ContactPage() {
                 >
                     {contactMethods.map((method, index) => {
                         const Icon = method.icon;
+                        const isExternal = method.link.startsWith('http');
                         return (
                             <a
                                 key={index}
                                 href={method.link}
-                                target={method.title === "Address" ? "_blank" : undefined}
-                                rel={method.title === "Address" ? "noopener noreferrer" : undefined}
+                                target={isExternal ? "_blank" : undefined}
+                                rel={isExternal ? "noopener noreferrer" : undefined}
                                 className="group relative overflow-hidden rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all hover:border-indigo-300/50 hover:shadow-xl dark:border-gray-800/50 dark:bg-slate-900/60"
                             >
                                 <div
@@ -363,10 +364,10 @@ export default function ContactPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                         Or simply send us an email at{" "}
                         <a
-                            href="mailto:bhosalerupesh67@gmail.com"
+                            href="mailto:noteoflife52@gmail.com"
                             className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
                         >
-                            bhosalerupesh67@gmail.com
+                            noteoflife52@gmail.com
                         </a>
                     </p>
                 </motion.div>

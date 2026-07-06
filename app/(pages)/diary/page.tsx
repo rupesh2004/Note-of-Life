@@ -81,6 +81,7 @@ export default function DiaryPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isDeleting, setIsDeleting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
     // ─── REF FOR DROPDOWN MENU ─────────────────────────────────
     const dropdownMenuRef = useRef<HTMLDivElement | null>(null);
@@ -172,7 +173,7 @@ export default function DiaryPage() {
 
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         setDropdownPosition({
-            top: rect.bottom + 8, // 8px gap
+            top: rect.bottom + 8,
             right: window.innerWidth - rect.right,
         });
         setDropdownOpen(entryId);
@@ -181,17 +182,51 @@ export default function DiaryPage() {
     // ─── LOAD ON MOUNT ──────────────────────────────────────────
     useEffect(() => {
         const token = localStorage.getItem("token");
-        if (!token) {
-            router.replace("/login");
-            return;
+        if (token) {
+            setIsAuthenticated(true);
+            fetchEntries();
+        } else {
+            setIsAuthenticated(false);
+            setIsLoading(false);
         }
-        fetchEntries();
-    }, [router]);
+    }, []);
 
     if (isLoading) {
         return (
             <div className="flex min-h-screen items-center justify-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+            </div>
+        );
+    }
+
+    if (!isAuthenticated) {
+        return (
+            <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
+                <div className="rounded-3xl border border-gray-200/50 bg-white/70 p-8 shadow-2xl backdrop-blur-xl dark:border-gray-800/50 dark:bg-slate-900/70 max-w-md text-center">
+                    <div className="mb-6 flex justify-center">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 shadow-lg">
+                            <BookOpen className="h-8 w-8 text-white" />
+                        </div>
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome to Your Diary</h2>
+                    <p className="mt-2 text-gray-600 dark:text-gray-400">
+                        Please log in to view and write your diary entries.
+                    </p>
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                        <Link
+                            href="/login"
+                            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-pink-500 px-6 py-2.5 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-105"
+                        >
+                            Log In
+                        </Link>
+                        <Link
+                            href="/signup"
+                            className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-300 px-6 py-2.5 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-slate-800"
+                        >
+                            Create Account
+                        </Link>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -245,7 +280,7 @@ export default function DiaryPage() {
                     </Link>
                 </div>
 
-                {/* Filters */}
+                {/* Filters (same as before) */}
                 <div className="mb-8 flex flex-wrap items-center gap-4">
                     <div className="relative flex-1 min-w-[200px]">
                         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500">
