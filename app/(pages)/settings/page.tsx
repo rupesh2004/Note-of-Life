@@ -143,7 +143,7 @@ export default function SettingsPage() {
         toast.success(updated.weeklyDigest ? "Weekly digest enabled" : "Weekly digest disabled");
     };
 
-    // ─── Export PDF with branding, background colors, and M/D/YYYY date ──
+    // ─── PROFESSIONAL PDF EXPORT WITH UNIQUE PAGE COLORS (NO EMOJIS) ──
     const handleExportPDF = async () => {
         setIsExporting(true);
         try {
@@ -166,94 +166,157 @@ export default function SettingsPage() {
             const doc = new jsPDF("p", "mm", "a4");
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
-            const margin = 20;
+            const margin = 15;
             const contentWidth = pageWidth - margin * 2;
-            let y = margin;
 
-            // ─── Colors ──────────────────────────────────────────────
-            const primaryColor: [number, number, number] = [79, 70, 229]; // indigo-600
-            const secondaryColor: [number, number, number] = [236, 72, 153]; // pink-500
-            const cardBg: [number, number, number] = [245, 243, 255]; // indigo-50
-            const borderColor: [number, number, number] = [224, 221, 235];
-            const textDark: [number, number, number] = [31, 41, 55];
-            const textGray: [number, number, number] = [107, 114, 128];
-            const textLight: [number, number, number] = [156, 163, 175];
+            // ─── Color palettes ──────────────────────────────────────────
+            const pageBackgrounds: [number, number, number][] = [
+                [245, 243, 255], // indigo-50
+                [240, 253, 244], // emerald-50
+                [254, 242, 242], // rose-50
+                [239, 246, 255], // blue-50
+                [255, 247, 237], // amber-50
+                [243, 244, 246], // gray-50
+            ];
+
+            const headerColors: [number, number, number][] = [
+                [79, 70, 229], // indigo-600
+                [16, 185, 129], // emerald-500
+                [244, 63, 94], // rose-500
+                [59, 130, 246], // blue-500
+                [245, 158, 11], // amber-500
+                [107, 114, 128], // gray-500
+            ];
 
             // ─── Helpers ──────────────────────────────────────────────
-            const ensureNewPage = () => {
+            let y = margin;
+            let pageNum = 1;
+
+            const addNewPage = () => {
                 doc.addPage();
                 y = margin;
+                pageNum++;
             };
 
-            const drawSeparator = (yPos: number) => {
+            const drawBorder = (bgColor: [number, number, number]) => {
+                doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+                doc.rect(0, 0, pageWidth, pageHeight, "F");
+
                 doc.setDrawColor(200, 200, 220);
-                doc.line(margin, yPos, pageWidth - margin, yPos);
+                doc.setLineWidth(0.5);
+                doc.rect(margin - 2, margin - 2, contentWidth + 4, pageHeight - margin * 2 + 4, "S");
             };
 
-            // ─── Draw Brand Header ────────────────────────────────────
-            const drawBrandHeader = (isFirstPage: boolean = true) => {
-                if (!isFirstPage) {
-                    doc.setFontSize(10);
-                    doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-                    doc.text("Note of Life – Every Memory Matters", pageWidth / 2, y, { align: "center" });
-                    y += 8;
-                    drawSeparator(y);
-                    y += 6;
-                } else {
-                    doc.setFontSize(26);
-                    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-                    doc.text("Note of Life", pageWidth / 2, y, { align: "center" });
-                    y += 10;
+            const drawHeaderBox = (headerColor: [number, number, number]) => {
+                const headerHeight = 20;
+                const headerY = margin - 2;
+                doc.setFillColor(headerColor[0], headerColor[1], headerColor[2]);
+                doc.rect(margin - 2, headerY, contentWidth + 4, headerHeight, "F");
 
-                    doc.setFontSize(14);
-                    doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-                    doc.text("Every Memory Matters", pageWidth / 2, y, { align: "center" });
-                    y += 10;
+                doc.setDrawColor(200, 200, 220);
+                doc.setLineWidth(0.3);
+                doc.rect(margin - 2, headerY, contentWidth + 4, headerHeight, "S");
 
-                    doc.setFontSize(10);
-                    doc.setTextColor(textLight[0], textLight[1], textLight[2]);
-                    const exportDate = new Date().toLocaleDateString('en-US', {
-                        month: 'numeric',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                    doc.text(`Exported: ${exportDate}`, pageWidth / 2, y, { align: "center" });
-                    y += 12;
+                doc.setFontSize(16);
+                doc.setTextColor(255, 255, 255);
+                doc.text("Note of Life", pageWidth / 2, headerY + 8, { align: "center" });
 
-                    drawSeparator(y);
-                    y += 8;
-                }
+                doc.setFontSize(9);
+                doc.setTextColor(255, 255, 255);
+                doc.text("Every Memory Matters", pageWidth / 2, headerY + 16, { align: "center" });
+
+                doc.setDrawColor(200, 200, 220);
+                doc.line(margin, headerY + headerHeight, pageWidth - margin, headerY + headerHeight);
+                y = headerY + headerHeight + 4;
             };
 
-            // ─── Draw a single entry ──────────────────────────────────
-            const drawEntry = (entry: any, index: number) => {
-                if (index > 0) {
-                    ensureNewPage();
-                    drawBrandHeader(false);
-                } else {
-                    drawBrandHeader(true);
-                }
+            const drawFooter = (pageNum: number, totalPages: number) => {
+                doc.setFontSize(8);
+                doc.setTextColor(156, 163, 175);
+                const footerText = `Page ${pageNum} of ${totalPages}  •  ${new Date().toLocaleDateString()}`;
+                doc.text(footerText, pageWidth / 2, pageHeight - 8, { align: "center" });
+            };
 
-                // ── Card background ──
-                const cardStartY = y - 2;
-                doc.setFillColor(cardBg[0], cardBg[1], cardBg[2]);
-                doc.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
-                doc.roundedRect(margin, cardStartY, contentWidth, 0, 2, 2, "FD");
+            // ─── Mood data (color only, no emoji) ──────────────────────
+            const moodColor: Record<string, [number, number, number]> = {
+                happy: [16, 185, 129],
+                calm: [244, 63, 94],
+                proud: [99, 102, 241],
+                joyful: [234, 179, 8],
+                relaxed: [59, 130, 246],
+                sad: [156, 163, 175],
+                angry: [239, 68, 68],
+                neutral: [156, 163, 175],
+            };
 
-                // ── Title ──
+            // ─── COVER PAGE ────────────────────────────────────────────
+            doc.setFillColor(245, 243, 255);
+            doc.rect(0, 0, pageWidth, pageHeight, "F");
+
+            doc.setFillColor(79, 70, 229);
+            doc.rect(0, 0, pageWidth, 6, "F");
+            doc.setFillColor(236, 72, 153);
+            doc.rect(0, 6, pageWidth, 3, "F");
+
+            doc.setFontSize(40);
+            doc.setTextColor(79, 70, 229);
+            doc.text("Note of Life", pageWidth / 2, 70, { align: "center" });
+
+            doc.setFontSize(20);
+            doc.setTextColor(236, 72, 153);
+            doc.text("Every Memory Matters", pageWidth / 2, 86, { align: "center" });
+
+            doc.setFontSize(12);
+            doc.setTextColor(156, 163, 175);
+            const coverDate = new Date().toLocaleString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            doc.text(`Exported on ${coverDate}`, pageWidth / 2, 106, { align: "center" });
+
+            doc.setFontSize(16);
+            doc.setTextColor(31, 41, 55);
+            doc.text(`Total Entries: ${entries.length}`, pageWidth / 2, 126, { align: "center" });
+
+            doc.setDrawColor(79, 70, 229);
+            doc.setLineWidth(0.5);
+            doc.line(margin, 140, pageWidth - margin, 140);
+
+            doc.setFontSize(14);
+            doc.setTextColor(107, 114, 128);
+            doc.text('"Every page tells a story. Every story becomes a memory."', pageWidth / 2, 160, { align: "center" });
+
+            // ─── ENTRIES ──────────────────────────────────────────────
+            const totalPages = entries.length + 1;
+            pageNum = 1;
+
+            entries.forEach((entry: any, index: number) => {
+                addNewPage();
+                const currentPageNum = pageNum;
+                const colorIndex = index % pageBackgrounds.length;
+                const bgColor = pageBackgrounds[colorIndex];
+                const headerColor = headerColors[colorIndex];
+
+                drawBorder(bgColor);
+                drawHeaderBox(headerColor);
+
+                // ── Title (centered with white background) ──
+                doc.setFillColor(255, 255, 255);
+                doc.rect(margin + 2, y - 2, contentWidth - 4, 12, "F");
+                doc.setDrawColor(220, 220, 235);
+                doc.rect(margin + 2, y - 2, contentWidth - 4, 12, "S");
                 doc.setFontSize(18);
-                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-                doc.text(entry.title, margin + 4, y);
-                y += 10;
+                doc.setTextColor(79, 70, 229);
+                doc.text(entry.title, pageWidth / 2, y + 8, { align: "center" });
+                y += 16;
 
-                // ── Metadata with M/D/YYYY date ──
-                doc.setFontSize(10);
-                doc.setTextColor(textGray[0], textGray[1], textGray[2]);
+                // ── Metadata rows ──
                 const entryDate = new Date(entry.date);
                 const dateStr = entryDate.toLocaleDateString('en-US', {
-                    month: 'numeric',
+                    month: 'long',
                     day: 'numeric',
                     year: 'numeric'
                 });
@@ -261,60 +324,124 @@ export default function SettingsPage() {
                     hour: '2-digit',
                     minute: '2-digit'
                 });
-                let metaText = `📅 ${dateStr} at ${timeStr}  •  Mood: ${entry.mood || "neutral"}`;
-                if (entry.tags && entry.tags.length > 0) {
-                    metaText += `  •  Tags: ${entry.tags.join(", ")}`;
-                }
-                doc.text(metaText, margin + 4, y);
+                const mood = entry.mood || "neutral";
+                const moodCol = moodColor[mood] || [156, 163, 175];
+
+                doc.setFontSize(11);
+                // Date
+                doc.setTextColor(31, 41, 55);
+                doc.setFont("helvetica", "bold");
+                doc.text("Date:", margin + 6, y);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(107, 114, 128);
+                doc.text(dateStr, margin + 40, y);
+                y += 6;
+
+                // Time
+                doc.setTextColor(31, 41, 55);
+                doc.setFont("helvetica", "bold");
+                doc.text("Time:", margin + 6, y);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(107, 114, 128);
+                doc.text(timeStr, margin + 40, y);
+                y += 6;
+
+                // Mood (plain text, no emoji)
+                doc.setTextColor(31, 41, 55);
+                doc.setFont("helvetica", "bold");
+                doc.text("Mood:", margin + 6, y);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(moodCol[0], moodCol[1], moodCol[2]);
+                doc.text(mood.charAt(0).toUpperCase() + mood.slice(1), margin + 40, y);
                 y += 8;
 
-                // ── Separator line ──
+                // ── Separator ──
                 doc.setDrawColor(220, 220, 235);
-                doc.line(margin + 4, y - 2, pageWidth - margin - 4, y - 2);
+                doc.line(margin + 4, y, pageWidth - margin - 4, y);
                 y += 6;
 
                 // ── Content ──
-                doc.setFontSize(11);
-                doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-                const contentLines = doc.splitTextToSize(entry.content, contentWidth - 8);
-                const neededHeight = contentLines.length * 5 + 20;
+                doc.setFontSize(12);
+                doc.setTextColor(31, 41, 55);
+                doc.setFont("helvetica", "normal");
+                const paragraphs = entry.content.split('\n').filter((p: string) => p.trim() !== '');
+                let contentLines: string[] = [];
+                paragraphs.forEach((para: string) => {
+                    const lines = doc.splitTextToSize(para, contentWidth - 12);
+                    contentLines = contentLines.concat(lines);
+                    if (para !== paragraphs[paragraphs.length - 1]) {
+                        contentLines.push('');
+                    }
+                });
 
-                if (y + neededHeight > pageHeight - margin - 10) {
-                    ensureNewPage();
-                    drawBrandHeader(false);
-                    doc.setFontSize(18);
-                    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-                    doc.text(entry.title, margin + 4, y);
-                    y += 10;
+                const neededHeight = contentLines.length * 5 + 10;
+                if (y + neededHeight > pageHeight - margin - 20) {
+                    // Content doesn't fit – add new page with a different color
+                    addNewPage();
+                    const newColorIndex = (index + 1) % pageBackgrounds.length;
+                    const newBg = pageBackgrounds[newColorIndex];
+                    const newHeader = headerColors[newColorIndex];
+                    drawBorder(newBg);
+                    drawHeaderBox(newHeader);
 
-                    doc.setFontSize(10);
-                    doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-                    doc.text(metaText, margin + 4, y);
-                    y += 8;
-
+                    // Re-draw title
+                    doc.setFillColor(255, 255, 255);
+                    doc.rect(margin + 2, y - 2, contentWidth - 4, 12, "F");
                     doc.setDrawColor(220, 220, 235);
-                    doc.line(margin + 4, y - 2, pageWidth - margin - 4, y - 2);
-                    y += 6;
+                    doc.rect(margin + 2, y - 2, contentWidth - 4, 12, "S");
+                    doc.setFontSize(18);
+                    doc.setTextColor(79, 70, 229);
+                    doc.text(entry.title, pageWidth / 2, y + 8, { align: "center" });
+                    y += 16;
 
+                    // Re-draw metadata
                     doc.setFontSize(11);
-                    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+                    doc.setTextColor(31, 41, 55);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("Date:", margin + 6, y);
+                    doc.setFont("helvetica", "normal");
+                    doc.setTextColor(107, 114, 128);
+                    doc.text(dateStr, margin + 40, y);
+                    y += 6;
+                    doc.setTextColor(31, 41, 55);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("Time:", margin + 6, y);
+                    doc.setFont("helvetica", "normal");
+                    doc.setTextColor(107, 114, 128);
+                    doc.text(timeStr, margin + 40, y);
+                    y += 6;
+                    doc.setTextColor(31, 41, 55);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("Mood:", margin + 6, y);
+                    doc.setFont("helvetica", "normal");
+                    doc.setTextColor(moodCol[0], moodCol[1], moodCol[2]);
+                    doc.text(mood.charAt(0).toUpperCase() + mood.slice(1), margin + 40, y);
+                    y += 8;
+                    doc.setDrawColor(220, 220, 235);
+                    doc.line(margin + 4, y, pageWidth - margin - 4, y);
+                    y += 6;
+                    doc.setFontSize(12);
+                    doc.setTextColor(31, 41, 55);
+                    doc.setFont("helvetica", "normal");
                 }
-                doc.text(contentLines, margin + 4, y);
+                doc.text(contentLines, margin + 6, y);
                 y += contentLines.length * 5 + 6;
 
-                // ── Footer ──
-                doc.setFontSize(8);
-                doc.setTextColor(textLight[0], textLight[1], textLight[2]);
-                const footerText = `Entry ${index + 1} of ${entries.length}  •  Note of Life`;
-                doc.text(footerText, pageWidth / 2, pageHeight - 10, { align: "center" });
-            };
+                // ── Tags ──
+                if (entry.tags && entry.tags.length > 0) {
+                    doc.setFontSize(11);
+                    doc.setTextColor(31, 41, 55);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("Tags:", margin + 6, y);
+                    doc.setFont("helvetica", "normal");
+                    doc.setTextColor(107, 114, 128);
+                    doc.text(entry.tags.join(", "), margin + 40, y);
+                    y += 8;
+                }
 
-            // ─── Loop through entries ──────────────────────────────────
-            entries.forEach((entry: any, idx: number) => {
-                drawEntry(entry, idx);
+                drawFooter(currentPageNum, totalPages);
             });
 
-            // ─── Save the PDF ──────────────────────────────────────────
             doc.save(`note-of-life-entries-${new Date().toISOString().slice(0, 10)}.pdf`);
             toast.success(`Exported ${entries.length} entries as PDF`);
         } catch (error: any) {
@@ -390,7 +517,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-6">
-                    {/* Appearance */}
+                    {/* ─── Appearance ─────────────────────────────────────── */}
                     <section className="rounded-3xl border border-gray-200/50 bg-white/70 p-6 backdrop-blur-xl dark:border-gray-800/50 dark:bg-slate-900/70 md:p-8">
                         <h2 className="mb-6 flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-white">
                             <Sun size={20} className="text-yellow-500" />
@@ -440,13 +567,14 @@ export default function SettingsPage() {
                         </div>
                     </section>
 
-                    {/* Notifications */}
+                    {/* ─── Notifications ───────────────────────────────────── */}
                     <section className="rounded-3xl border border-gray-200/50 bg-white/70 p-6 backdrop-blur-xl dark:border-gray-800/50 dark:bg-slate-900/70 md:p-8">
                         <h2 className="mb-6 flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-white">
                             <Bell size={20} className="text-indigo-500" />
                             Notifications
                         </h2>
                         <div className="space-y-4">
+                            {/* (unchanged) */}
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="font-medium text-gray-800 dark:text-gray-200">Daily Reminder</p>
@@ -488,22 +616,15 @@ export default function SettingsPage() {
                                     <p className="font-medium">Reminder email</p>
                                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                                         {userEmail
-                                            ? "Send a test reminder email to your registered address. Check your inbox or spam folder."
+                                            ? "Note of Life will send a daily reminder email at 9:00 PM (UTC). Please check your inbox and spam folder."
                                             : "Save a profile email address to receive reminder emails."}
                                     </p>
-                                    <button
-                                        onClick={() => userEmail && sendDailyReminder(userEmail)}
-                                        disabled={!userEmail || isSendingReminder}
-                                        className="mt-3 inline-flex items-center rounded-full bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        {isSendingReminder ? "Sending..." : "Send test reminder"}
-                                    </button>
                                 </div>
                             )}
                         </div>
                     </section>
 
-                    {/* Data Management */}
+                    {/* ─── Data Management ─────────────────────────────────── */}
                     <section className="rounded-3xl border border-gray-200/50 bg-white/70 p-6 backdrop-blur-xl dark:border-gray-800/50 dark:bg-slate-900/70 md:p-8">
                         <h2 className="mb-6 flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-white">
                             <Shield size={20} className="text-emerald-500" />
@@ -547,7 +668,7 @@ export default function SettingsPage() {
                         </div>
                     </section>
 
-                    {/* About */}
+                    {/* ─── About ───────────────────────────────────────────── */}
                     <section className="rounded-3xl border border-gray-200/50 bg-white/70 p-6 backdrop-blur-xl dark:border-gray-800/50 dark:bg-slate-900/70 md:p-8">
                         <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-white">
                             <Info size={20} className="text-purple-500" />
