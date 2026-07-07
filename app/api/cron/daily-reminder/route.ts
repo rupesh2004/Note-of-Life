@@ -105,3 +105,32 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { email, name } = body || {};
+
+    if (!email || typeof email !== "string") {
+      return NextResponse.json(
+        { message: "Missing or invalid email" },
+        { status: 400 }
+      );
+    }
+
+    const html = buildReminderEmail(name || "there", email);
+    await sendEmail({
+      to: email,
+      subject: "🌅 Your Daily Journal Reminder",
+      html,
+    });
+
+    return NextResponse.json({ message: "Reminder email sent" });
+  } catch (error: any) {
+    console.error("Manual send error:", error);
+    return NextResponse.json(
+      { message: error.message || "Failed to send email" },
+      { status: 500 }
+    );
+  }
+}
