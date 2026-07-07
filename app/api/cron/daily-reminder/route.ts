@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
 
     const users = await db
       .collection("users")
-      .find({ "settings.dailyReminder": true })
+      .find({ dailyReminder: true }) 
       .toArray();
 
     let sent = 0,
@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
         sent++;
       } catch {
         failed++;
-      }
+      } 
     }
 
     return NextResponse.json({ success: true, sent, failed, total: users.length });
