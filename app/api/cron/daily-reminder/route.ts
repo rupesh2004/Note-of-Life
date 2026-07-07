@@ -73,11 +73,6 @@ function buildReminderEmail(name: string, email: string): string {
 
 // ─── GET: Cron trigger – sends to all users ────────────────────
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
     const client = await clientPromise;
     const db = client.db("note-of-life");
@@ -108,29 +103,5 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error("Cron error:", error);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
-  }
-}
-
-// ─── POST: Manual trigger – sends to a single email ────────────
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { email, name } = body || {};
-
-    if (!email || typeof email !== "string") {
-      return NextResponse.json({ message: "Missing or invalid email" }, { status: 400 });
-    }
-
-    const html = buildReminderEmail(name || "there", email);
-    await sendEmail({
-      to: email,
-      subject: "🌅 Your Daily Journal Reminder",
-      html,
-    });
-
-    return NextResponse.json({ message: "Reminder email sent" });
-  } catch (error) {
-    console.error("Single email send error:", error);
-    return NextResponse.json({ message: "Failed to send reminder email" }, { status: 500 });
   }
 }
