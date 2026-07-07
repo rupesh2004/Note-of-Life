@@ -19,6 +19,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <title>Note of Life | Your personal diary app</title>
+      </head>
       <body className={inter.className} suppressHydrationWarning> {/* ✅ Added suppressHydrationWarning */}
         <Providers>
           <div className="flex min-h-screen flex-col">
